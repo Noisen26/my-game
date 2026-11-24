@@ -2,53 +2,13 @@
 // image, fingerprints them and compares against the artist's registered
 // works. Watched pages are re-scanned on a schedule and the artist is
 // e-mailed when new copies are found.
-import { safeFetch, validateUrl } from './fetcher.js';
+import { safeFetch, validateUrl, userAgent } from './fetcher.js';
 import { fingerprint, sha256, SUSPECT_CROPS } from './imaging.js';
 import { stampDigest } from './timestamp.js';
+import { extractImageUrls, detectBlock, isShopify, shopifyJsonUrl, shopifyImages, normaliseImage } from './extract.js';
 import { now } from './db.js';
 
-const MAX_IMAGES_PER_PAGE = 60;
-const decode = (s) =>
-  s.replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;|&#x27;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/\\\//g, '/');
-
-/** Pulls candidate product-image URLs out of an HTML page. */
-export function extractImageUrls(htmlText, base) {
-  const found = [];
-  const push = (u) => {
-    if (!u) return;
-    try {
-      const abs = new URL(decode(u.trim()), base);
-      if (/^https?:$/.test(abs.protocol) && !/\.(svg|ico|gif)(\?|$)/i.test(abs.pathname)) found.push(abs.href);
-    } catch {
-      /* ignore */
-    }
-  };
-  // Social/meta images first: on product pages these are the main product photo.
-  for (const m of htmlText.matchAll(/<meta[^>]+(?:property|name)=["'](?:og:image(?::secure_url)?|twitter:image(?::src)?)["'][^>]*>/gi))
-    push(m[0].match(/content=["']([^"']+)["']/i)?.[1]);
-  for (const m of htmlText.matchAll(/<link[^>]+rel=["']image_src["'][^>]*>/gi)) push(m[0].match(/href=["']([^"']+)["']/i)?.[1]);
-  // JSON-LD / inline JSON "image" fields (Shopify, Etsy, Amazon, WooCommerce)
-  for (const m of htmlText.matchAll(/"image"\s*:\s*(\[[^\]]*\]|"[^"]+")/g)) {
-    for (const u of m[1].matchAll(/"(https?:[^"]+|\/\/[^"]+)"/g)) push(u[1]);
-  }
-  for (const m of htmlText.matchAll(/<img\b[^>]*>/gi)) {
-    const tag = m[0];
-    for (const attr of ['data-zoom-image', 'data-old-hires', 'data-large_image', 'data-full', 'data-src', 'src']) {
-      const v = tag.match(new RegExp(`\\s${attr}=["']([^"']+)["']`, 'i'))?.[1];
-      if (v && !v.startsWith('data:')) {
-        push(v);
-        break;
-      }
-    }
-    const srcset = tag.match(/\s(?:data-)?srcset=["']([^"']+)["']/i)?.[1];
-    if (srcset) {
-      // take the largest candidate
-      const last = srcset.split(',').map((s) => s.trim().split(/\s+/)[0]).filter(Boolean).pop();
-      push(last);
-    }
-  }
-  return [...new Set(found)].slice(0, MAX_IMAGES_PER_PAGE);
-}
+export { extractImageUrls };
 
 async function pool(items, size, fn) {
   const out = [];
@@ -84,26 +44,50 @@ export function createMonitor({ db, cfg, artworks, mailer, log = console }) {
     return { hits, created };
   }
 
-  async function scan(userId, rawUrl) {
-    const page = await safeFetch(validateUrl(rawUrl, fetchOpts).href, { ...fetchOpts, maxBytes: 4 * 1024 * 1024, accept: 'text/html,image/*;q=0.9,*/*;q=0.5' });
+  const opts = (extra) => ({ ...fetchOpts, ua: userAgent(cfg.baseUrl), ...extra });
+
+  /** Finds the product image URLs for a page (HTML, Shopify JSON or a direct image). */
+  async function imagesFor(rawUrl) {
+    const page = await safeFetch(validateUrl(rawUrl, fetchOpts).href, opts({ maxBytes: 6 * 1024 * 1024, accept: 'text/html,image/*;q=0.9,*/*;q=0.5' }));
+    const blocked = detectBlock(page);
+    if (blocked) throw blocked;
     if (page.status >= 400) throw new Error(`The page answered with HTTP ${page.status}.`);
-    let imageUrls;
-    let direct = null;
-    if (/^image\//i.test(page.contentType)) {
-      imageUrls = [page.url];
-      direct = page.body;
-    } else {
-      imageUrls = extractImageUrls(page.body.toString('utf8'), page.url);
+    if (/^image\//i.test(page.contentType)) return { page, imageUrls: [page.url], direct: page.body, source: 'image' };
+
+    if (isShopify(page)) {
+      try {
+        const res = await safeFetch(shopifyJsonUrl(page.url), opts({ maxBytes: 8 * 1024 * 1024, accept: 'application/json' }));
+        const urls = res.status === 200 ? shopifyImages(JSON.parse(res.body.toString('utf8'))) : [];
+        if (urls.length) {
+          const seen = new Set();
+          const imageUrls = urls
+            .map((u) => normaliseImage(new URL(u, page.url).href))
+            .filter(({ key }) => !seen.has(key) && seen.add(key))
+            .map(({ url }) => url)
+            .slice(0, 250);
+          return { page, imageUrls, source: 'shopify' };
+        }
+      } catch {
+        /* fall back to HTML extraction */
+      }
     }
+    return { page, imageUrls: extractImageUrls(page.body.toString('utf8'), page.url), source: 'html' };
+  }
+
+  async function scan(userId, rawUrl) {
+    const { page, imageUrls, direct, source } = await imagesFor(rawUrl);
+    if (!imageUrls.length)
+      throw new Error(
+        'No product images were found in the page. It is probably built with JavaScript in the browser ' +
+          '(Temu search pages are, for example). Try the URLs of individual product pages instead.',
+      );
     let checked = 0;
     let failed = 0;
     const created = [];
     const hits = [];
-    await pool(imageUrls, 4, async (imgUrl) => {
+    await pool(imageUrls, 6, async (imgUrl) => {
       try {
-        const buf =
-          direct ??
-          (await safeFetch(imgUrl, { ...fetchOpts, maxBytes: 15 * 1024 * 1024, accept: 'image/avif,image/webp,image/*' })).body;
+        const buf = direct ?? (await safeFetch(imgUrl, opts({ maxBytes: 15 * 1024 * 1024, accept: 'image/avif,image/webp,image/*' }))).body;
         const fp = await fingerprint(buf, SUSPECT_CROPS);
         checked++;
         const r = recordMatches(userId, page.url, imgUrl, buf, fp);
@@ -113,7 +97,8 @@ export function createMonitor({ db, cfg, artworks, mailer, log = console }) {
         failed++;
       }
     });
-    return { pageUrl: page.url, found: imageUrls.length, checked, failed, created, hits };
+    if (!checked && failed) throw new Error(`Found ${failed} images, but none could be downloaded. The image server may block automated access.`);
+    return { pageUrl: page.url, found: imageUrls.length, checked, failed, created, hits, source };
   }
 
   async function notify(userId, created) {
@@ -134,7 +119,7 @@ export function createMonitor({ db, cfg, artworks, mailer, log = console }) {
       status = `OK - ${r.checked} image(s) checked, ${r.created.length} new match(es)`;
       await notify(w.user_id, r.created);
     } catch (e) {
-      status = `Error: ${e.message}`;
+      status = `${e.blocked ? 'Blocked' : 'Error'}: ${e.message}`;
     }
     db.run('UPDATE watches SET last_checked_at = ?, last_status = ? WHERE id = ?', now(), status, w.id);
     return status;
@@ -144,7 +129,7 @@ export function createMonitor({ db, cfg, artworks, mailer, log = console }) {
     const rows = db.all(`SELECT id, sha256, ots_attempts FROM artworks WHERE ots_status IN ('queued','failed') AND ots_attempts < 12 LIMIT 20`);
     for (const r of rows) {
       try {
-        const proof = await stampDigest(r.sha256, cfg.otsCalendars);
+        const proof = await stampDigest(r.sha256, cfg.otsCalendars, { dispatcher: cfg.allowPrivateFetch ? null : undefined });
         db.run(`UPDATE artworks SET ots_status = 'pending', ots_proof = ?, ots_attempts = ots_attempts + 1 WHERE id = ?`, proof, r.id);
       } catch (e) {
         db.run(`UPDATE artworks SET ots_status = 'failed', ots_attempts = ots_attempts + 1 WHERE id = ?`, r.id);

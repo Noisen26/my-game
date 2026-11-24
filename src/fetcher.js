@@ -2,7 +2,7 @@
 // only http(s) on ports 80/443, every redirect re-validated, and DNS
 // answers that point at private/loopback/link-local ranges are refused at
 // connect time (which also defeats DNS rebinding).
-import { Agent, fetch } from 'undici';
+import { Agent, ProxyAgent, fetch } from 'undici';
 import dns from 'node:dns';
 import net from 'node:net';
 
@@ -45,6 +45,34 @@ function guardedLookup(hostname, opts, cb) {
 const publicAgent = new Agent({ connect: { lookup: guardedLookup, timeout: 10_000 }, headersTimeout: 15_000, bodyTimeout: 20_000 });
 const openAgent = new Agent({ connect: { timeout: 10_000 }, headersTimeout: 15_000, bodyTimeout: 20_000 });
 
+// Optional egress proxy (OUTBOUND_PROXY), for hosts where servers may only
+// reach the internet through a proxy. Node's fetch ignores HTTPS_PROXY.
+const PROXY = process.env.OUTBOUND_PROXY || null;
+const proxyAgent = PROXY ? new ProxyAgent({ uri: PROXY, headersTimeout: 15_000, bodyTimeout: 20_000 }) : null;
+
+/** Dispatcher for outbound requests to public hosts. */
+export const outboundDispatcher = () => proxyAgent || publicAgent;
+
+/**
+ * With a proxy the connection is made by the proxy, so the connect-time
+ * check cannot run. Resolve the name ourselves first and refuse private
+ * answers. If the name does not resolve locally, the proxy decides.
+ */
+async function assertPublicHost(hostname) {
+  const host = hostname.replace(/^\[|\]$/g, '');
+  if (net.isIP(host)) {
+    if (isPrivateIp(host)) throw new Error('Private addresses are not allowed.');
+    return;
+  }
+  let addrs = [];
+  try {
+    addrs = await dns.promises.lookup(host, { all: true });
+  } catch {
+    return;
+  }
+  if (addrs.some((a) => isPrivateIp(a.address))) throw new Error(`Refusing to connect to private address for ${host}`);
+}
+
 export function validateUrl(input, { allowPrivate = false } = {}) {
   let u;
   try {
@@ -64,21 +92,26 @@ export function validateUrl(input, { allowPrivate = false } = {}) {
   return u;
 }
 
-export const USER_AGENT = 'Mozilla/5.0 (compatible; ArtguardMonitor/1.0; +copyright-monitoring)';
+/**
+ * The monitor always identifies itself honestly. Sites that block it are
+ * reported as blocked; we never disguise it as a regular browser.
+ */
+export const userAgent = (baseUrl = '') => `ArtguardMonitor/1.0 (+${baseUrl}/bot; copyright monitoring for artists)`;
 
 /**
  * Fetches a URL with redirect re-validation and a hard size cap.
  * Returns { url, status, contentType, body: Buffer }.
  */
-export async function safeFetch(input, { maxBytes = 5 * 1024 * 1024, allowPrivate = false, accept = '*/*', timeoutMs = 25_000 } = {}) {
+export async function safeFetch(input, { maxBytes = 5 * 1024 * 1024, allowPrivate = false, accept = '*/*', timeoutMs = 25_000, ua = userAgent() } = {}) {
   let url = validateUrl(input, { allowPrivate });
   const signal = AbortSignal.timeout(timeoutMs);
   for (let hop = 0; hop < 6; hop++) {
+    if (!allowPrivate && proxyAgent) await assertPublicHost(url.hostname);
     const res = await fetch(url, {
       redirect: 'manual',
       signal,
-      dispatcher: allowPrivate ? openAgent : publicAgent,
-      headers: { 'User-Agent': USER_AGENT, Accept: accept, 'Accept-Language': 'en,*;q=0.5' },
+      dispatcher: allowPrivate ? openAgent : outboundDispatcher(),
+      headers: { 'User-Agent': ua, Accept: accept, 'Accept-Language': 'en,*;q=0.5' },
     });
     if ([301, 302, 303, 307, 308].includes(res.status)) {
       const loc = res.headers.get('location');

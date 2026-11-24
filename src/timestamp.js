@@ -8,6 +8,7 @@ import { generateKeyPairSync, createPrivateKey, createPublicKey, sign, verify, c
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { fetch } from 'undici';
+import { outboundDispatcher } from './fetcher.js';
 
 /** Loads a persisted secret/key from dataDir/keys, creating it on first run. */
 function persisted(dataDir, name, create) {
@@ -69,7 +70,7 @@ const FORK = 0xff;
  * file (pending attestations). It can later be upgraded and verified with
  * the standard client: `ots upgrade file.ots && ots verify file.ots`.
  */
-export async function stampDigest(hexDigest, calendars, { timeoutMs = 15000 } = {}) {
+export async function stampDigest(hexDigest, calendars, { timeoutMs = 15000, dispatcher } = {}) {
   const digest = Buffer.from(hexDigest, 'hex');
   if (digest.length !== 32) throw new Error('Expected a SHA-256 digest');
   const results = await Promise.allSettled(
@@ -77,6 +78,7 @@ export async function stampDigest(hexDigest, calendars, { timeoutMs = 15000 } = 
       const res = await fetch(`${base.replace(/\/$/, '')}/digest`, {
         method: 'POST',
         body: digest,
+        ...(dispatcher !== null ? { dispatcher: dispatcher ?? outboundDispatcher() } : {}),
         headers: { Accept: 'application/vnd.opentimestamps.v1', 'User-Agent': 'artguard-ots/1.0' },
         signal: AbortSignal.timeout(timeoutMs),
       });

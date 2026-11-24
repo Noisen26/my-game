@@ -265,6 +265,22 @@ describe('artworks', () => {
       assert.equal((await thief.get(`/dashboard/matches/${matchId}`)).status, 404);
     });
 
+    test('Shopify stores are read through their product JSON', async () => {
+      const r = await env.ctx.monitor.scan(env.ctx.db.one(`SELECT id FROM users WHERE handle = 'anna'`).id, `${shop.url}/shopify/products/sunset`);
+      assert.equal(r.source, 'shopify');
+      assert.equal(r.checked, 3);
+      assert.equal(r.hits.length, 2);
+    });
+
+    test('blocked and JavaScript-only pages give clear messages', async () => {
+      const blocked = await (await anna.post('/dashboard/monitor', { url: `${shop.url}/blocked`, mode: 'once' })).text();
+      assert.match(blocked, /blocks automated access \(HTTP 403\)/);
+      const spa = await (await anna.post('/dashboard/monitor', { url: `${shop.url}/spa`, mode: 'once' })).text();
+      assert.match(spa, /No product images were found/);
+      await anna.post('/dashboard/monitor', { url: `${shop.url}/blocked`, mode: 'watch' });
+      assert.match(env.ctx.db.one('SELECT last_status FROM watches WHERE url LIKE ?', '%/blocked').last_status, /^Blocked: /);
+    });
+
     test('monitor rejects private addresses when not explicitly allowed', async () => {
       const strict = await startApp({ allowPrivateFetch: false });
       try {

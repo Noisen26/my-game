@@ -146,6 +146,12 @@ export async function startShop(images) {
     const m = req.url.match(/^\/img\/(\d+)\.jpg$/);
     if (m && images[m[1]]) return res.writeHead(200, { 'content-type': 'image/jpeg' }).end(images[m[1]]);
     if (req.url === '/redirect') return res.writeHead(302, { location: '/product' }).end();
+    if (req.url === '/blocked') return res.writeHead(403, { 'content-type': 'text/html' }).end('<html><script src="https://ct.captcha-delivery.com/c.js"></script></html>');
+    if (req.url === '/spa') return res.writeHead(200, { 'content-type': 'text/html' }).end('<html><body><div id="app"></div><script src="/app.js"></script></body></html>');
+    if (req.url === '/shopify/products/sunset')
+      return res.writeHead(200, { 'content-type': 'text/html' }).end('<html><link href="//cdn.shopify.com/s/files/theme.css"><div class="shopify-section">Only a placeholder image here</div></html>');
+    if (req.url === '/shopify/products/sunset.json')
+      return res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ product: { images: images.map((_, i) => ({ src: `/img/${i}.jpg` })) } }));
     if (req.url === '/product')
       return res.writeHead(200, { 'content-type': 'text/html' }).end(`<!doctype html><html><head>
         <meta property="og:image" content="/img/0.jpg">

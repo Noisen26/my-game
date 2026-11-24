@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { isPrivateIp, validateUrl } from '../src/fetcher.js';
-import { extractImageUrls } from '../src/monitor.js';
+import { extractImageUrls, normaliseImage, detectBlock, shopifyJsonUrl, shopifyImages } from '../src/extract.js';
 import { fingerprint, distance, hamming, MATCH_THRESHOLD, SUSPECT_CROPS } from '../src/imaging.js';
 import { html, raw } from '../src/html.js';
 import { canonical } from '../src/timestamp.js';
@@ -27,15 +27,42 @@ test('URL validation blocks SSRF vectors', () => {
   assert.equal(validateUrl('https://www.etsy.com/listing/1#frag').href, 'https://www.etsy.com/listing/1');
 });
 
-test('extracts product images from typical shop markup', () => {
+test('extracts product images from typical shop markup, best first, without junk', () => {
   const page = `<meta property="og:image" content="https://cdn.shop.com/a.jpg?v=1&amp;w=2">
     <script type="application/ld+json">{"image":["https:\\/\\/cdn.shop.com\\/b.jpg","//cdn.shop.com/c.jpg"]}</script>
-    <img data-src="/lazy.jpg" src="data:image/gif;base64,x"><img srcset="/s1.jpg 1x, /s2.jpg 2x" src="/s1.jpg"><img src="/logo.svg">`;
+    <img data-src="/lazy.jpg" src="data:image/gif;base64,x"><img srcset="/s1.jpg 1x, /s2.jpg 2x" src="/s1.jpg"><img src="/logo.svg">
+    <img src="/assets/site-logo.png"><img src="/tiny.jpg" width="16" height="16">
+    <script>window.__STATE__={"items":[{"img":"https:\/\/img.cdn.com\/product\/p1.webp"}]}</script>`;
   const urls = extractImageUrls(page, 'https://shop.com/p/1');
   assert.deepEqual(urls, [
     'https://cdn.shop.com/a.jpg?v=1&w=2', 'https://cdn.shop.com/b.jpg', 'https://cdn.shop.com/c.jpg',
-    'https://shop.com/lazy.jpg', 'https://shop.com/s1.jpg', 'https://shop.com/s2.jpg',
+    'https://shop.com/lazy.jpg', 'https://shop.com/s1.jpg', 'https://shop.com/s2.jpg', 'https://img.cdn.com/product/p1.webp',
   ]);
+});
+
+test('CDN thumbnails are upgraded and de-duplicated', () => {
+  const amazon = `<img class="s-image" src="https://m.media-amazon.com/images/I/718qzLjgVBL._AC_UL320_.jpg"
+    srcset="https://m.media-amazon.com/images/I/718qzLjgVBL._AC_UL480_QL65_.jpg 1.5x">
+    <img src="https://m.media-amazon.com/images/G/01/gno/sprites/nav-sprite.png">`;
+  assert.deepEqual(extractImageUrls(amazon, 'https://www.amazon.com/s?k=x'), ['https://m.media-amazon.com/images/I/718qzLjgVBL._AC_SL800_.jpg']);
+  assert.equal(normaliseImage('https://cdn.shopify.com/s/files/1/0/products/poster_200x200.jpg?v=1').url, 'https://cdn.shopify.com/s/files/1/0/products/poster.jpg?width=800');
+  assert.equal(normaliseImage('https://i.etsystatic.com/123/r/il/abc/456_xyz/il_340x270.456789_abcd.jpg').url, 'https://i.etsystatic.com/123/r/il/abc/456_xyz/il_794xN.456789_abcd.jpg');
+});
+
+test('bot challenges are detected and reported as blocked', () => {
+  const page = (status, html, url = 'https://www.etsy.com/search') => ({ url, status, contentType: 'text/html', body: Buffer.from(html) });
+  assert.match(detectBlock(page(403, '<html>captcha-delivery.com</html>')).message, /etsy\.com blocks automated access \(HTTP 403\)/);
+  assert.ok(detectBlock(page(200, '<title>Just a moment...</title>', 'https://www.redbubble.com/')).blocked);
+  assert.ok(detectBlock(page(200, '<title>Robot Check</title>', 'https://www.amazon.com/')));
+  assert.equal(detectBlock(page(200, '<title>Sunset poster</title>')), null);
+});
+
+test('Shopify JSON endpoints', () => {
+  assert.equal(shopifyJsonUrl('https://store.com/products/sunset-poster?variant=1'), 'https://store.com/products/sunset-poster.json');
+  assert.equal(shopifyJsonUrl('https://store.com/collections/posters/products/sunset'), 'https://store.com/collections/posters/products/sunset.json');
+  assert.equal(shopifyJsonUrl('https://store.com/collections/posters?page=2'), 'https://store.com/collections/posters/products.json?limit=250');
+  assert.equal(shopifyJsonUrl('https://store.com/'), 'https://store.com/products.json?limit=250');
+  assert.deepEqual(shopifyImages({ products: [{ images: [{ src: 'a' }, { src: 'b' }] }, { images: [] }] }), ['a', 'b']);
 });
 
 test('perceptual matching: copies match, different art does not', async () => {
