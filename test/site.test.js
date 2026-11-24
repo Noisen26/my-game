@@ -22,7 +22,7 @@ after(async () => {
 describe('public site', () => {
   test('main pages render', async () => {
     const c = env.client();
-    for (const p of ['/', '/gallery', '/how-it-works', '/check', '/verify', '/login', '/signup', '/terms', '/privacy', '/forgot']) {
+    for (const p of ['/', '/gallery', '/how-it-works', '/check', '/verify', '/login', '/signup', '/terms', '/privacy', '/forgot', '/bot']) {
       const { status, html } = await c.text(p);
       assert.equal(status, 200, p);
       assert.match(html, /<title>/, p);

@@ -140,7 +140,11 @@ export function createMonitor({ db, cfg, artworks, mailer, log = console }) {
 
   async function runDue() {
     const cutoff = new Date(Date.now() - cfg.rescanHours * 3600e3).toISOString();
-    const due = db.all('SELECT * FROM watches WHERE active = 1 AND (last_checked_at IS NULL OR last_checked_at < ?) LIMIT 50', cutoff);
+    const due = db.all(
+      `SELECT w.* FROM watches w JOIN users u ON u.id = w.user_id
+       WHERE w.active = 1 AND u.suspended_at IS NULL AND (w.last_checked_at IS NULL OR w.last_checked_at < ?) LIMIT 50`,
+      cutoff,
+    );
     for (const w of due) await scanWatch(w);
     await stampPending();
   }

@@ -143,6 +143,10 @@ ${items.length ? html`<div class="grid">${items.map((a) => artCard({ ...a, displ
 export function artworkPage({ cfg, a, src, isOwner, csrf, certValid }) {
   const otsLabel = { queued: 'Queued for submission', pending: 'Submitted - confirmed in the Bitcoin blockchain within a few hours', failed: 'Calendar unreachable - retrying automatically' }[a.ots_status];
   return html`
+${a.hidden_at || a.owner_suspended_at
+  ? html`<div class="flash flash-err">This artwork is hidden by moderators${a.hidden_reason ? html`: ${a.hidden_reason}` : ''}.
+      Only its owner and moderators can see this page.</div>`
+  : ''}
 <div class="artwork">
   <figure class="artwork-figure">
     <img src="${src}" alt="${a.title} by ${a.display_name}" draggable="false">
@@ -292,5 +296,22 @@ export function legalPage({ cfg, which }) {
   turned back into your image.</p>
   <p>You can delete individual artworks or your whole account at any time from your dashboard. Deletion removes the
   original, the preview and all related data.</p>
+</div>`;
+}
+
+export function botPage({ cfg }) {
+  return html`
+${pageHead('ArtguardMonitor', `The crawler that checks shops for copies of artists' work registered on ${cfg.siteName}.`)}
+<div class="prose">
+  <p>If you see <code>ArtguardMonitor/1.0</code> in your logs: an artist registered on ${cfg.siteName} asked us to check a page on
+  your site for unauthorised copies of their artwork.</p>
+  <ul>
+    <li>It only fetches pages an artist has added, plus the product images on those pages, and re-checks them at most once a day.</li>
+    <li>It always identifies itself with this user agent and never disguises itself as a regular browser.</li>
+    <li>If your site blocks it (with a 403, a captcha or a challenge page), it stops and tells the artist the page could not be checked. It does not try to get around blocks.</li>
+    <li>Images are only compared against registered artworks. Nothing is republished, and nothing is used for AI training.</li>
+  </ul>
+  <p>If a listing on your site was flagged, the artist may contact you or the marketplace with a takedown notice.
+  Questions about the crawler can be sent to the site operator.</p>
 </div>`;
 }

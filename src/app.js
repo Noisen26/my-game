@@ -23,6 +23,7 @@ import { layout, flash, notFound } from './views/layout.js';
 import * as pub from './views/public.js';
 import * as auth from './views/auth.js';
 import * as dash from './views/dashboard.js';
+import { createAdminRouter } from './admin.js';
 
 const ah = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 const str = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
@@ -53,6 +54,8 @@ export async function createApp(overrides = {}) {
   const heavyLimit = lim({ windowMs: 10 * 60 * 1000, max: 40 });
 
   const thumb = (id) => signer.sign(id, 'thumb');
+  // Hidden or suspended works are only visible to their owner and to admins.
+  const canSee = (req, a) => !!a && (artworks.isVisible(a) || req.user?.id === a.user_id || !!req.user?.is_admin);
   const preview = (id) => signer.sign(id, 'img');
 
   const render = (req, res, opts, status = 200) =>
@@ -91,7 +94,7 @@ export async function createApp(overrides = {}) {
     lim({ windowMs: 10 * 60 * 1000, max: 400 }),
     (req, res) => {
       const { id } = req.params;
-      if (!artworks.get(id) || !signer.verify(id, req.query.exp, req.query.sig, kind)) return res.status(403).end();
+      if (!canSee(req, artworks.get(id)) || !signer.verify(id, req.query.exp, req.query.sig, kind)) return res.status(403).end();
       res.set({
         'Content-Type': 'image/jpeg',
         'Cache-Control': 'private, max-age=600',
@@ -108,6 +111,7 @@ export async function createApp(overrides = {}) {
   // ------------------------------------------------------------------ public pages
   app.get('/', (req, res) => render(req, res, { title: '', body: pub.home({ cfg, recent: artworks.recentPublic(8), thumb, user: req.user }), wide: true }));
   app.get('/how-it-works', (req, res) => render(req, res, { title: 'How it works', body: pub.howItWorks({ cfg }) }));
+  app.get('/bot', (req, res) => render(req, res, { title: 'ArtguardMonitor', body: pub.botPage({ cfg }) }));
   app.get('/terms', (req, res) => render(req, res, { title: 'Terms', body: pub.legalPage({ cfg, which: 'terms' }) }));
   app.get('/privacy', (req, res) => render(req, res, { title: 'Privacy', body: pub.legalPage({ cfg, which: 'privacy' }) }));
 
@@ -119,14 +123,14 @@ export async function createApp(overrides = {}) {
   });
 
   app.get('/artist/:handle', (req, res) => {
-    const artist = db.one('SELECT * FROM users WHERE handle = ?', String(req.params.handle));
+    const artist = db.one('SELECT * FROM users WHERE handle = ? AND suspended_at IS NULL', String(req.params.handle));
     if (!artist) return render(req, res, { title: 'Not found', body: notFound() }, 404);
     render(req, res, { title: artist.display_name, body: pub.artistPage({ artist, items: artworks.publicByUser(artist.id), thumb }) });
   });
 
   app.get('/a/:id', (req, res) => {
     const a = artworks.get(req.params.id);
-    if (!a) return render(req, res, { title: 'Not found', body: notFound() }, 404);
+    if (!canSee(req, a)) return render(req, res, { title: 'Not found', body: notFound() }, 404);
     const isOwner = req.user?.id === a.user_id;
     const certValid = verifyCertificate(secrets, a.certificate, a.signature);
     render(req, res, { title: a.title, description: `${a.title} by ${a.display_name}`, body: pub.artworkPage({ cfg, a, src: preview(a.id), isOwner, csrf: req.csrf, certValid }) });
@@ -134,7 +138,7 @@ export async function createApp(overrides = {}) {
 
   app.get('/a/:id/certificate.json', (req, res) => {
     const a = artworks.get(req.params.id);
-    if (!a) return res.status(404).json({ error: 'not found' });
+    if (!canSee(req, a)) return res.status(404).json({ error: 'not found' });
     res.set('Content-Disposition', `attachment; filename="certificate-${a.id}.json"`).json({
       payload: JSON.parse(a.certificate),
       payloadCanonical: a.certificate,
@@ -147,20 +151,25 @@ export async function createApp(overrides = {}) {
 
   app.get('/a/:id/proof.ots', (req, res) => {
     const a = artworks.get(req.params.id);
-    if (!a?.ots_proof) return res.status(404).type('text').send('No timestamp proof available yet.');
+    if (!canSee(req, a) || !a.ots_proof) return res.status(404).type('text').send('No timestamp proof available yet.');
     res.set({ 'Content-Type': 'application/octet-stream', 'Content-Disposition': `attachment; filename="${a.id}.ots"` }).send(Buffer.from(a.ots_proof));
   });
 
   app.post('/a/:id/dispute', authLimit, csrf, ah(async (req, res) => {
     const a = artworks.get(req.params.id);
-    if (!a) return render(req, res, { title: 'Not found', body: notFound() }, 404);
+    if (!canSee(req, a)) return render(req, res, { title: 'Not found', body: notFound() }, 404);
     const name = str(req.body.name, 100);
     const email = str(req.body.email, 200);
     const message = str(req.body.message, 4000);
     if (!name || !EMAIL_RE.test(email) || !message) return res.redirect(303, `/a/${a.id}`);
-    db.run('INSERT INTO disputes (artwork_id, name, email, message, created_at) VALUES (?, ?, ?, ?, ?)', a.id, name, email, message, now());
-    if (cfg.adminEmail)
-      await mailer.send({ to: cfg.adminEmail, subject: `Dispute for artwork ${a.id}`, text: `Artwork: ${cfg.baseUrl}/a/${a.id}\nFrom: ${name} <${email}>\n\n${message}` });
+    const disputeId = Number(db.run('INSERT INTO disputes (artwork_id, name, email, message, created_at) VALUES (?, ?, ?, ?, ?)', a.id, name, email, message, now()).lastInsertRowid);
+    const admins = new Set([cfg.adminEmail, ...db.all('SELECT email FROM users WHERE is_admin = 1').map((u) => u.email)].filter(Boolean));
+    for (const to of admins)
+      await mailer.send({
+        to,
+        subject: `${cfg.siteName}: new dispute about "${a.title}"`,
+        text: `Review: ${cfg.baseUrl}/admin/disputes/${disputeId}\nArtwork: ${cfg.baseUrl}/a/${a.id}\nFrom: ${name} <${email}>\n\n${message}`,
+      });
     res.redirect(303, `/a/${a.id}?msg=dispute-sent`);
   }));
 
@@ -220,6 +229,8 @@ export async function createApp(overrides = {}) {
     const ok = user ? await verifyPassword(String(req.body.password || ''), user.password_hash) : (await hashPassword('timing-equaliser'), false);
     if (!ok)
       return render(req, res, { title: 'Sign in', body: auth.loginPage({ csrf: req.csrf, next: safeNext(req.body.next), email, error: 'Wrong e-mail or password.' }) }, 401);
+    if (user.suspended_at)
+      return render(req, res, { title: 'Sign in', body: auth.loginPage({ csrf: req.csrf, next: '/dashboard', email, error: 'This account has been suspended. Contact support if you think this is a mistake.' }) }, 403);
     sessions.login(res, user.id);
     res.redirect(303, safeNext(req.body.next));
   }));
@@ -446,6 +457,7 @@ export async function createApp(overrides = {}) {
   }));
 
   app.use('/dashboard', d);
+  app.use('/admin', createAdminRouter({ cfg, db, artworks, mailer, csrf, render, preview, thumb, ah }));
 
   // ------------------------------------------------------------------ errors
   app.use((req, res) => render(req, res, { title: 'Not found', body: notFound() }, 404));

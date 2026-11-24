@@ -62,7 +62,7 @@ export function createSessions(db, { secure }) {
       req.user = null;
       if (cookies.sid) {
         const row = db.one(
-          `SELECT u.* FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires_at > ?`,
+          `SELECT u.* FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires_at > ? AND u.suspended_at IS NULL`,
           tokenHash(cookies.sid),
           Date.now(),
         );
@@ -140,4 +140,10 @@ export function requireUser(req, res, next) {
 }
 
 /** Only allow local redirect targets. */
+export function requireAdmin(req, res, next) {
+  if (!req.user) return res.redirect(303, `/login?next=${encodeURIComponent(req.originalUrl)}`);
+  if (!req.user.is_admin) return res.status(404).type('text').send('Not found');
+  next();
+}
+
 export const safeNext = (n) => (typeof n === 'string' && /^\/(?![/\\])/.test(n) ? n : '/dashboard');

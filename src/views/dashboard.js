@@ -85,7 +85,8 @@ ${items.length
       (a) => html`<a class="card" href="/dashboard/artworks/${a.id}">
         <div class="card-img"><img src="${thumb(a.id)}" alt="${a.title}" loading="lazy"></div>
         <div class="card-body"><strong>${a.title}</strong>
-          <span class="muted small">${fmtDay(a.created_at)}${a.visibility === 'unlisted' ? ' · unlisted' : ''}</span></div>
+          <span class="muted small">${fmtDay(a.created_at)}${a.visibility === 'unlisted' ? ' · unlisted' : ''}</span>
+          ${a.hidden_at ? html`<span class="badge badge-new">Hidden by moderators</span>` : ''}</div>
       </a>`,
     )}</div>`
   : html`<p class="empty">Nothing registered yet. <a href="/dashboard/upload">Register your first artwork →</a></p>`}`,

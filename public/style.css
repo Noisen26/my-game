@@ -254,3 +254,18 @@ textarea.notice { font-family: ui-monospace, Menlo, Consolas, monospace; font-si
 .settings { display: grid; gap: 1.25rem; max-width: 640px; }
 .settings h2 { margin: 0; font-size: 1.15rem; }
 .pager { display: flex; justify-content: space-between; align-items: center; margin-top: 2rem; }
+
+/* admin */
+.admin-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: .75rem; margin-bottom: 2rem; }
+.admin-action { display: flex; gap: .5rem; align-items: center; }
+.admin-action input { flex: 1; min-width: 0; }
+.admin-action button { flex: none; }
+.card .admin-action { margin-top: .35rem; }
+.card .admin-action input { font-size: .8rem; padding: .3rem .45rem; }
+.search-row { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
+.search-row input { flex: 1 1 260px; }
+.search-row select { width: auto; }
+dl.kv { display: grid; grid-template-columns: auto 1fr; gap: .3rem 1rem; }
+dl.kv dt { color: var(--muted); }
+dl.kv dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.card-form + .card-form { margin-top: 1rem; }

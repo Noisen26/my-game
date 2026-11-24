@@ -18,6 +18,7 @@ They get independent proof of authorship, and the service finds copies on market
 | **Marketplace monitor** | Artists add shop, listing or search-result URLs. The monitor extracts product images (og:image, JSON-LD, `img`/`srcset`/lazy attributes), compares them with the artist's works, re-scans every 24 h and e-mails new matches. |
 | **Takedowns** | Each match has a DMCA (17 U.S.C. § 512(c)(3)) or EU DSA (Art. 16) notice, pre-filled with the artist's details and evidence. It links to the right reporting channel for Etsy, Amazon, Temu, Shopify and Redbubble, or to a generic guide. Status workflow: new → confirmed → reported → removed / dismissed. |
 | **Anti claim-jacking** | A work that is already registered by someone else, either as the exact file or a perceptual match, cannot be registered again. Anyone can report a false claim. |
+| **Moderation** | An admin area for false-claim disputes. Upholding a dispute hides the work (which lets the real author register it) and can also suspend the owner. Rejecting keeps the work. Both parties are e-mailed. There is also user search, suspend/lift, hide, unhide and delete for artworks, and an audit log of every action. Hidden works and suspended accounts disappear from the gallery, profiles, images, certificates, "Find copies" and the monitor. |
 | **Accounts** | Sign-up and sign-in (scrypt), sessions, password reset by e-mail, public artist profiles, unlisted works, and account deletion that removes every file. |
 
 ### What it cannot do
@@ -34,7 +35,7 @@ Requires Node.js ≥ 22.13 (uses the built-in `node:sqlite`).
 npm install
 npm start          # http://localhost:3000
 npm run dev        # restart on file changes
-npm test           # 32 unit and integration tests
+npm test           # 46 unit and integration tests
 ```
 
 Configuration is done with environment variables. See [`.env.example`](.env.example). For production:
@@ -47,6 +48,35 @@ docker run -p 3000:3000 -v artguard-data:/data --env-file .env artguard
 Put it behind HTTPS (Caddy, nginx or Cloudflare) and set `BASE_URL` and `TRUST_PROXY`. **Back up the data volume.** It holds
 the SQLite database, the originals and the signing key in `keys/`. Losing the key means new certificates cannot be
 issued under the same identity. Existing ones stay verifiable with the published public key.
+
+## Administration
+
+Admin rights are granted from the command line only. They are never granted by e-mail address, since addresses are not verified:
+
+```bash
+node scripts/admin.js grant you@example.com   # then sign in and open /admin
+node scripts/admin.js revoke you@example.com
+node scripts/admin.js list
+```
+
+Admins and `ADMIN_EMAIL` receive an e-mail for every new dispute.
+
+## Marketplace monitor: live results (Nov 2026)
+
+The monitor identifies itself as `ArtguardMonitor/1.0` (explained at `/bot`) and never disguises itself as a browser. When a site blocks it, the page is reported as **Blocked** and the artist is pointed to "Find copies" or the platform's report form.
+
+| Site | Result |
+|---|---|
+| Amazon search and product pages | ✅ Works. 47 product images checked on a search page in about 4 s. A planted copy was found at distance 0 with no false positives. |
+| Shopify stores | ✅ Read through the store's public product JSON (`/products/<handle>.json`, `/collections/<x>/products.json`). |
+| Temu | ⚠️ Search pages are rendered in the browser and contain no product images. Individual product URLs may work. |
+| Etsy | ⛔ Captcha (DataDome) for automated clients. Reported as blocked. |
+| Redbubble | ⛔ Cloudflare challenge. Reported as blocked. |
+| OpenTimestamps | ✅ Real proofs created. The official `ots info` client reads them. |
+
+For Etsy, an integration with Etsy's official Open API (which needs an API key) is the right way forward, not scraping.
+
+If your server can only reach the internet through a proxy, set `OUTBOUND_PROXY=http://proxy:port`. Node's `fetch` does not follow `HTTPS_PROXY` by itself.
 
 ## Security notes
 
@@ -72,9 +102,12 @@ src/
   monitor.js      page scanning, image extraction, scheduler, alerts
   fetcher.js      SSRF-safe HTTP client
   takedown.js     DMCA / DSA notices, platform channels
+  extract.js      product-image extraction, CDN normalisation, block detection, Shopify
+  admin.js        moderation routes
   mailer.js       SMTP (or console when not configured)
   views/          HTML views
 public/           CSS, progressive-enhancement JS, favicon
+scripts/admin.js  grant/revoke admin rights
 test/             unit and integration tests (fake shop and fake OTS calendar)
 ```
 
@@ -85,4 +118,4 @@ test/             unit and integration tests (fake shop and fake OTS calendar)
 - C2PA Content Credentials embedded in previews.
 - An embedding-based index (CLIP) for heavier crops and mock-ups, and a vector index once the catalogue grows.
 - Optional adversarial cloaking against style mimicry.
-- Admin view for disputes, and paid plans (monitoring volume).
+- Etsy Open API integration; paid plans (monitoring volume).

@@ -47,7 +47,7 @@ export function layout(ctx, { title, body, description = '', wide = false }) {
       ${nav('/check', 'Find copies')}
       ${nav('/verify', 'Verify')}
       ${user
-        ? html`${nav('/dashboard', 'Dashboard')}
+        ? html`${nav('/dashboard', 'Dashboard')}${user.is_admin ? nav('/admin', 'Admin') : ''}
           <form method="post" action="/logout" class="inline">${csrfField(csrf)}<button class="link">Sign out</button></form>`
         : html`${nav('/login', 'Sign in')}<a href="/signup" class="btn btn-small">Join free</a>`}
     </nav>

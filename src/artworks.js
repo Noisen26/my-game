@@ -25,35 +25,34 @@ export function createArtworks({ db, cfg, secrets }) {
     }
   };
 
+  // Publicly visible: not hidden by moderators and the owner is not suspended.
+  const VISIBLE = 'a.hidden_at IS NULL AND u.suspended_at IS NULL';
+  const SELECT = 'SELECT a.*, u.handle, u.display_name, u.suspended_at AS owner_suspended_at FROM artworks a JOIN users u ON u.id = a.user_id';
+
   const candidates = (where = '', ...params) =>
-    db.all(`SELECT id, user_id, dhash, phashes FROM artworks ${where}`, ...params).map((r) => ({ ...r, phashes: JSON.parse(r.phashes) }));
+    db
+      .all(`SELECT a.id, a.user_id, a.dhash, a.phashes FROM artworks a JOIN users u ON u.id = a.user_id ${where}`, ...params)
+      .map((r) => ({ ...r, phashes: JSON.parse(r.phashes) }));
 
   const api = {
     dirs,
     previewPath: (id) => join(dirs.previews, `${id}.jpg`),
     thumbPath: (id) => join(dirs.thumbs, `${id}.jpg`),
-    get: (id) =>
-      db.one(
-        `SELECT a.*, u.handle, u.display_name FROM artworks a JOIN users u ON u.id = a.user_id WHERE a.id = ?`,
-        String(id),
-      ),
+    get: (id) => db.one(`${SELECT} WHERE a.id = ?`, String(id)),
+    isVisible: (a) => !!a && !a.hidden_at && !a.owner_suspended_at,
     byUser: (userId) => db.all('SELECT * FROM artworks WHERE user_id = ? ORDER BY created_at DESC', userId),
     publicByUser: (userId) =>
-      db.all(`SELECT * FROM artworks WHERE user_id = ? AND visibility = 'public' ORDER BY created_at DESC`, userId),
+      db.all(`SELECT * FROM artworks WHERE user_id = ? AND visibility = 'public' AND hidden_at IS NULL ORDER BY created_at DESC`, userId),
     recentPublic: (limit = 24, offset = 0) =>
-      db.all(
-        `SELECT a.*, u.handle, u.display_name FROM artworks a JOIN users u ON u.id = a.user_id
-         WHERE a.visibility = 'public' ORDER BY a.created_at DESC LIMIT ? OFFSET ?`,
-        limit,
-        offset,
-      ),
-    countPublic: () => db.one(`SELECT COUNT(*) n FROM artworks WHERE visibility = 'public'`).n,
-    bySha: (sha) =>
-      db.all(`SELECT a.*, u.handle, u.display_name FROM artworks a JOIN users u ON u.id = a.user_id WHERE a.sha256 = ? ORDER BY a.created_at`, sha),
+      db.all(`${SELECT} WHERE a.visibility = 'public' AND ${VISIBLE} ORDER BY a.created_at DESC LIMIT ? OFFSET ?`, limit, offset),
+    countPublic: () =>
+      db.one(`SELECT COUNT(*) n FROM artworks a JOIN users u ON u.id = a.user_id WHERE a.visibility = 'public' AND ${VISIBLE}`).n,
+    /** Visible registrations of an exact file. */
+    bySha: (sha) => db.all(`${SELECT} WHERE a.sha256 = ? AND ${VISIBLE} ORDER BY a.created_at`, sha),
 
     /** Registered artworks perceptually matching a suspect fingerprint. */
     findMatches(fp, { userId } = {}) {
-      const rows = userId ? candidates('WHERE user_id = ?', userId) : candidates();
+      const rows = userId ? candidates('WHERE a.user_id = ?', userId) : candidates(`WHERE ${VISIBLE}`);
       return rows
         .map((r) => ({ id: r.id, user_id: r.user_id, distance: distance(fp, r) }))
         .filter((r) => r.distance <= MATCH_THRESHOLD)
@@ -71,8 +70,9 @@ export function createArtworks({ db, cfg, secrets }) {
         throw new UserError('The file could not be read as an image. Use JPEG, PNG, WebP or TIFF.');
       }
       const sha = sha256(buf);
+      const own = db.one('SELECT id FROM artworks WHERE sha256 = ? AND user_id = ?', sha, user.id);
+      if (own) throw new UserError('You have already registered this exact file.', { existing: own.id });
       const same = api.bySha(sha);
-      if (same.some((a) => a.user_id === user.id)) throw new UserError('You have already registered this exact file.', { existing: same[0].id });
       if (same.length) throw new UserError('This exact file is already registered by another artist.', { conflict: same[0].id });
 
       const fp = await fingerprint(buf);

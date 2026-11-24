@@ -94,6 +94,24 @@ const MIGRATIONS = [
     status TEXT NOT NULL DEFAULT 'open'
   );
   CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);`,
+  // 2: moderation
+  `ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE users ADD COLUMN suspended_at TEXT;
+  ALTER TABLE users ADD COLUMN suspended_reason TEXT NOT NULL DEFAULT '';
+  ALTER TABLE artworks ADD COLUMN hidden_at TEXT;
+  ALTER TABLE artworks ADD COLUMN hidden_reason TEXT NOT NULL DEFAULT '';
+  ALTER TABLE disputes ADD COLUMN resolution TEXT NOT NULL DEFAULT '';
+  ALTER TABLE disputes ADD COLUMN resolved_at TEXT;
+  ALTER TABLE disputes ADD COLUMN resolved_by INTEGER;
+  CREATE INDEX disputes_status ON disputes(status, created_at);
+  CREATE TABLE admin_log (
+    id INTEGER PRIMARY KEY,
+    admin_id INTEGER,
+    action TEXT NOT NULL,
+    target TEXT NOT NULL,
+    note TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL
+  );`,
 ];
 
 export function openDb(dataDir) {
