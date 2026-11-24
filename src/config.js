@@ -8,14 +8,14 @@ export function loadConfig(overrides = {}) {
   const port = Number(env.PORT) || 3000;
   const cfg = {
     port,
-    siteName: env.SITE_NAME || 'Konstskydd',
+    siteName: env.SITE_NAME || 'ARTGUARD',
     // Public base URL, used in watermarks, certificates and e-mails.
     baseUrl: (env.BASE_URL || `http://localhost:${port}`).replace(/\/$/, ''),
     dataDir: env.DATA_DIR || join(ROOT, 'data'),
     secret: env.APP_SECRET || null, // HMAC secret for signed image URLs; generated and persisted if missing
     production: env.NODE_ENV === 'production',
     smtpUrl: env.SMTP_URL || null, // e.g. smtps://user:pass@smtp.example.com
-    mailFrom: env.MAIL_FROM || 'Konstskydd <no-reply@localhost>',
+    mailFrom: env.MAIL_FROM || 'ARTGUARD <no-reply@localhost>',
     otsCalendars: (env.OTS_CALENDARS || 'https://a.pool.opentimestamps.org,https://b.pool.opentimestamps.org')
       .split(',')
       .map((s) => s.trim())

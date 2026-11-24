@@ -27,7 +27,7 @@ import * as dash from './views/dashboard.js';
 const ah = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 const str = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
 const HANDLE_RE = /^[a-zA-Z0-9_-]{3,30}$/;
-const RESERVED = new Set(['admin', 'dashboard', 'api', 'static', 'login', 'signup', 'support', 'help', 'about', 'konstskydd']);
+const RESERVED = new Set(['admin', 'dashboard', 'api', 'static', 'login', 'signup', 'support', 'help', 'about', 'artguard', 'art-guard']);
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export async function createApp(overrides = {}) {

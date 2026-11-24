@@ -64,10 +64,10 @@ test('takedown notices contain the legally required elements', () => {
     user: { display_name: 'Anna', legal_name: 'Anna Lind', postal_address: 'Storgatan 1, Stockholm', email: 'anna@example.com' },
     artwork: { id: 'abc', title: 'Sunset', year: '2025', created_at: '2026-01-01T00:00:00Z', sha256: 'f'.repeat(64) },
     match: { page_url: 'https://www.etsy.com/listing/1', image_url: 'https://i.etsystatic.com/x.jpg' },
-    baseUrl: 'https://konstskydd.example',
+    baseUrl: 'https://artguard.example',
   };
   const dmca = buildNotice('dmca', ctx);
-  for (const s of ['good faith belief', 'penalty of perjury', 'Anna Lind', 'Storgatan 1', 'https://www.etsy.com/listing/1', 'https://konstskydd.example/a/abc', 'f'.repeat(64)])
+  for (const s of ['good faith belief', 'penalty of perjury', 'Anna Lind', 'Storgatan 1', 'https://www.etsy.com/listing/1', 'https://artguard.example/a/abc', 'f'.repeat(64)])
     assert.ok(dmca.includes(s), s);
   const dsa = buildNotice('dsa', ctx);
   for (const s of ['Article 16', 'bona fide belief', 'accurate and complete', 'https://i.etsystatic.com/x.jpg']) assert.ok(dsa.includes(s), s);

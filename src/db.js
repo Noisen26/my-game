@@ -98,7 +98,7 @@ const MIGRATIONS = [
 
 export function openDb(dataDir) {
   mkdirSync(dataDir, { recursive: true });
-  const db = new DatabaseSync(join(dataDir, 'konstskydd.db'));
+  const db = new DatabaseSync(join(dataDir, 'artguard.db'));
   db.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;');
   const version = db.prepare('PRAGMA user_version').get().user_version;
   for (let v = version; v < MIGRATIONS.length; v++) {

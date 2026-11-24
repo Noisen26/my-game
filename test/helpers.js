@@ -101,7 +101,7 @@ export class Client {
 
 /** Starts a throw-away instance of the app (and a fake OTS calendar). */
 export async function startApp(overrides = {}) {
-  const dir = await mkdtemp(join(tmpdir(), 'konstskydd-test-'));
+  const dir = await mkdtemp(join(tmpdir(), 'artguard-test-'));
   const calendar = http.createServer((req, res) => {
     let n = 0;
     req.on('data', (c) => (n += c.length));

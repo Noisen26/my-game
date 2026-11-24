@@ -1,4 +1,4 @@
-# Konstskydd
+# ARTGUARD
 
 A portfolio and protection service for artists. Artists can show their work online without handing over a printable file.
 They get independent proof of authorship, and the service finds copies on marketplaces and drafts the takedown notices.
@@ -40,8 +40,8 @@ npm test           # 32 unit and integration tests
 Configuration is done with environment variables. See [`.env.example`](.env.example). For production:
 
 ```bash
-docker build -t konstskydd .
-docker run -p 3000:3000 -v konstskydd-data:/data --env-file .env konstskydd
+docker build -t artguard .
+docker run -p 3000:3000 -v artguard-data:/data --env-file .env artguard
 ```
 
 Put it behind HTTPS (Caddy, nginx or Cloudflare) and set `BASE_URL` and `TRUST_PROXY`. **Back up the data volume.** It holds

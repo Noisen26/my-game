@@ -1,7 +1,7 @@
 {
-  "name": "konstskydd",
+  "name": "artguard",
   "version": "0.1.0",
-  "description": "Konstskydd: a portfolio and protection service for artists. Watermarked previews, AI-scraper blocking, signed and blockchain-timestamped registration certificates, marketplace monitoring and takedown notices.",
+  "description": "ARTGUARD: a portfolio and protection service for artists. Watermarked previews, AI-scraper blocking, signed and blockchain-timestamped registration certificates, marketplace monitoring and takedown notices.",
   "type": "module",
   "main": "src/server.js",
   "scripts": {

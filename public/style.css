@@ -66,7 +66,7 @@ code.hash { word-break: break-all; }
 /* header */
 .site-header { background: var(--surface); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; }
 .header-inner { display: flex; align-items: center; justify-content: space-between; min-height: 64px; gap: 1rem; }
-.brand { display: flex; align-items: center; gap: .55rem; font-weight: 700; font-size: 1.15rem; color: var(--fg); text-decoration: none; }
+.brand { display: flex; align-items: center; gap: .55rem; font-weight: 800; font-size: 1.1rem; letter-spacing: .08em; color: var(--fg); text-decoration: none; }
 .brand-mark { width: 26px; height: 26px; border-radius: 7px; background: var(--accent) url("/static/favicon.svg") center/cover; }
 .site-nav { display: flex; align-items: center; gap: 1.25rem; }
 .site-nav a { color: var(--muted); text-decoration: none; font-size: .95rem; }

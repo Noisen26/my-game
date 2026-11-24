@@ -77,7 +77,7 @@ export async function stampDigest(hexDigest, calendars, { timeoutMs = 15000 } = 
       const res = await fetch(`${base.replace(/\/$/, '')}/digest`, {
         method: 'POST',
         body: digest,
-        headers: { Accept: 'application/vnd.opentimestamps.v1', 'User-Agent': 'konstskydd-ots/1.0' },
+        headers: { Accept: 'application/vnd.opentimestamps.v1', 'User-Agent': 'artguard-ots/1.0' },
         signal: AbortSignal.timeout(timeoutMs),
       });
       if (!res.ok) throw new Error(`${base}: HTTP ${res.status}`);

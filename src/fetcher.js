@@ -64,7 +64,7 @@ export function validateUrl(input, { allowPrivate = false } = {}) {
   return u;
 }
 
-export const USER_AGENT = 'Mozilla/5.0 (compatible; KonstskyddMonitor/1.0; +copyright-monitoring)';
+export const USER_AGENT = 'Mozilla/5.0 (compatible; ArtguardMonitor/1.0; +copyright-monitoring)';
 
 /**
  * Fetches a URL with redirect re-validation and a hard size cap.
