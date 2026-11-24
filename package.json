@@ -1,20 +1,23 @@
 {
   "name": "konstskydd",
   "version": "0.1.0",
-  "description": "Plattform där konstnärer kan visa sina verk med vattenstämpel, AI-skrapningsskydd och bevisbar upphovsrätt.",
+  "description": "Konstskydd: a portfolio and protection service for artists. Watermarked previews, AI-scraper blocking, signed and blockchain-timestamped registration certificates, marketplace monitoring and takedown notices.",
   "type": "module",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
     "test": "node --test test/*.test.js"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22.13"
   },
   "license": "MIT",
   "dependencies": {
     "express": "^4.22.3",
     "multer": "^1.4.5-lts.1",
-    "sharp": "^0.33.5"
+    "nodemailer": "^6.10.1",
+    "sharp": "^0.33.5",
+    "undici": "^6.29.1"
   }
 }
