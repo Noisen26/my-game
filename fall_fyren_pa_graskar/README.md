@@ -15,7 +15,9 @@ python3 bygg_fall.py             # skriver till ./utdata
 
 Akten innehåller bara rådata, inga slutsatser och inga markeringar. Varje
 avgörande ledtråd kräver att spelaren kombinerar två till fyra dokument.
-Åtta personer kan väljas, och sju av dem har ett motiv eller ett falskt spår.
+Fem misstänkta, alla med ett verkligt motiv. Varje förhör från 2019 följs av ett
+nytt samtal från 2026, där personerna lägger till, ändrar eller motsäger det de
+sa tidigare.
 Svarskontrollen ger bara ett kontrollord, ingen ledning vid fel svar.
 
 ## Innehåll i `utdata/`
@@ -24,7 +26,7 @@ Svarskontrollen ger bara ett kontrollord, ingen ledning vid fel svar.
 |---|---|
 | `00_Las_forst.pdf` | Omslag, uppdragsbrev, regler, innehållsförteckning och svarsblad |
 | `Akt/B01–B21` | Ett dokument per bevis |
-| `Svarskontroll.pdf` | 56 svarskoder med kontrollord |
+| `Svarskontroll.pdf` | 25 svarskoder med kontrollord |
 | `Ledtradar.pdf` | Stegvisa ledtrådar, från vaga till tydliga |
 | `Losning.pdf` | Rätt kontrollord på omslaget, sedan beviskedja, motiv, tidslinje och epilog |
 | `Fyren_pa_Graskar_alla_dokument.pdf` | Alla dokument i en fil, för utskrift |
@@ -32,7 +34,7 @@ Svarskontrollen ger bara ett kontrollord, ingen ledning vid fel svar.
 ## Svar (spoiler)
 
 Jonas Ek, som dödade Henrik för att dölja en förskingring.
-Svarskod 5824, kontrollord KOBBKLOCKA.
+Svarskod 5879, kontrollord STORMFÅGEL.
 
 All text finns i `bygg_fall.py`. Ändra där och bygg om. Skriptet skriver ut
 rätt svarskod och kontrollord efter varje bygge.
