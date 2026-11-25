@@ -11,24 +11,28 @@ pip install reportlab pypdf      # pypdf behövs bara för samlingsfilen
 python3 bygg_fall.py             # skriver till ./utdata
 ```
 
+## Svårighetsgrad: extremt svår
+
+Akten innehåller bara rådata, inga slutsatser och inga markeringar. Varje
+avgörande ledtråd kräver att spelaren kombinerar två till fyra dokument.
+Åtta personer kan väljas, och sju av dem har ett motiv eller ett falskt spår.
+Svarskontrollen ger bara ett kontrollord, ingen ledning vid fel svar.
+
 ## Innehåll i `utdata/`
 
 | Fil | Innehåll |
 |---|---|
 | `00_Las_forst.pdf` | Omslag, uppdragsbrev, regler, innehållsförteckning och svarsblad |
-| `Akt/B01–B20` | Ett dokument per bevis |
-| `Svarskontroll.pdf` | Svarskoder och ledtrådar |
-| `Losning.pdf` | Lösning, motivöversikt, tidslinje och epilog |
+| `Akt/B01–B21` | Ett dokument per bevis |
+| `Svarskontroll.pdf` | 56 svarskoder med kontrollord |
+| `Ledtradar.pdf` | Stegvisa ledtrådar, från vaga till tydliga |
+| `Losning.pdf` | Rätt kontrollord på omslaget, sedan beviskedja, motiv, tidslinje och epilog |
 | `Fyren_pa_Graskar_alla_dokument.pdf` | Alla dokument i en fil, för utskrift |
 
-## Frågor och svar (spoiler)
+## Svar (spoiler)
 
-Spelaren svarar på två frågor:
+Jonas Ek, som dödade Henrik för att dölja en förskingring.
+Svarskod 5824, kontrollord KOBBKLOCKA.
 
-1. Vem är skyldig? **Jonas Ek** (kod 509)
-2. Varför? **Henrik hade upptäckt förskingringen via falska fakturor** (kod 183)
-
-Motiven i fallet: Maria (livförsäkringen), Lukas (skulder, ville sälja),
-Anders (vindkraften) och Jonas (förskingringen). Sofia och Aisha har inget motiv.
-
-All text finns i `bygg_fall.py`. Ändra där och bygg om.
+All text finns i `bygg_fall.py`. Ändra där och bygg om. Skriptet skriver ut
+rätt svarskod och kontrollord efter varje bygge.
