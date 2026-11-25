@@ -11,7 +11,7 @@ pip install reportlab pypdf      # pypdf behövs bara för samlingsfilen
 python3 bygg_fall.py             # skriver till ./utdata
 ```
 
-## Svårighetsgrad: extremt svår
+## Svårighetsgrad: svår
 
 Akten innehåller bara rådata, inga slutsatser och inga markeringar. Varje
 avgörande ledtråd kräver att spelaren kombinerar två till fyra dokument.

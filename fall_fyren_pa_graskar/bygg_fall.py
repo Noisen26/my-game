@@ -437,7 +437,7 @@ def rita_karta(c, w, h):
     # Personalhuset
     hus(420, 322, 72, 30)
     text(420, 320, "Personalhuset", "Plex-Semi", 7, align="c")
-    text(420, 329, "rum 1 · rum 2", fs=6.3, farg=GRA, align="c")
+    text(420, 329, "rum A · rum B", fs=6.3, farg=GRA, align="c")
     # fönster mot öster
     for dy in (-8, 2):
         a, b = T(456, 322 + dy)
@@ -483,6 +483,12 @@ def rita_karta(c, w, h):
     text(452, 220, "Strandstigen", "Plex-It", 6.8, farg=GRA)
     text(452, 228, "ca 600 m", "Plex-It", 6.3, farg=GRA)
 
+    # inglasad gång mellan gästflygel och huvudbyggnad
+    a, b = T(233, 284)
+    c.setFillColor(colors.white)
+    c.setStrokeColor(BLAK)
+    c.setLineWidth(0.7)
+    c.rect(a, b, 16 * sk, 12 * sk, stroke=1, fill=1)
     # fönster på övriga hus (horisontella = norr/söder, vertikala = öster/väster)
     def fonster(x, y, liggande=True):
         a, b = T(x, y)
@@ -498,6 +504,7 @@ def rita_karta(c, w, h):
     fonster(184, 278, False)
     fonster(223, 402, False)
     fonster(196, 431)
+    fonster(275, 452, False)
     # dörrar: personalentré (söder), huvudbyggnadens ytterdörr (norr), köksdörr (öster)
     c.setFillColor(BLAK)
     for (dx, dy) in ((412, 337), (300, 251)):
@@ -923,7 +930,7 @@ def svarsblad():
 def dok_las_forst(ut):
     story = [sida_omslag("ETT FALL UR SKUGGARKIVET", "FYREN PÅ\nGRÅSKÄR",
                          "Roslagen, oktober 2019.\nEn pensionatsvärd hittas död vid fyren. Polisen kallar det en olycka.",
-                         "Svårighetsgrad: extremt svår. Fiktivt fall. Alla personer, företag och händelser är påhittade."),
+                         "Svårighetsgrad: svår. Fiktivt fall. Alla personer, företag och händelser är påhittade."),
              NextPageTemplate("akt"), PageBreak()]
     story += [
         P("PM", "etikett"),
@@ -1120,7 +1127,7 @@ def dok_b06(ut):
         P("Internlista, uppsatt i receptionen", "h2"),
         tabell(["Ankn.", "Plats"], [
             ["101", "Reception och kontor"], ["102", "Köket"], ["103", "Salongen"],
-            ["104", "Personalhuset, rum 1"], ["105", "Personalhuset, rum 2"],
+            ["104", "Personalhuset, rum A"], ["105", "Personalhuset, rum B"],
             ["111", "Gästrum 1"], ["112", "Gästrum 2"], ["113", "Gästrum 3"], ["114", "Gästrum 4"],
             ["120", "Båthuset"],
         ], [20 * mm, 80 * mm], mono=True),
@@ -1378,7 +1385,7 @@ def dok_b12(ut):
                          "Köket, Gråskärs pensionat", "Insp. Elsa Lund", langd="162 cm")
     story += forhor([
         ("F", "Hur länge har du arbetat här?"),
-        ("S", "Sedan i april. Jag bor i rum 2 i personalhuset."),
+        ("S", "Sedan i april. Jag bor i rum B i personalhuset."),
         ("F", "Berätta om fredagen."),
         ("S", "När jag städade rum 4 på eftermiddagen låg ett presskort på nattduksbordet. Det stod Sofia Berg på det, inte Lind. Jag sa det till Henrik. Han nickade bara och sa att han skulle ta hand om det."),
         ("F", "Och på kvällen?"),
@@ -1446,7 +1453,7 @@ def dok_b13(ut):
         ("F", "Du sa 2019 att du inte förlåtit Henrik."),
         ("S", "Det har jag fortfarande inte. Vi bodde i en tvåa i tio år efter konkursen. Men om jag hade velat göra honom illa hade jag gjort det 1998, inte tjugo år senare med en man på kryckor att ta hand om."),
         ("F", "Du sa att ni inte gick ut den natten."),
-        ("S", "Vi gick inte ut. Gästflygeln sitter ihop med huvudbyggnaden. Men jag gick in i hallen strax efter tolv för att hämta mina läsglasögon, de låg kvar i salongen."),
+        ("S", "Vi gick inte ut. Det finns en inglasad gång mellan gästflygeln och huvudbyggnaden. Men jag gick in i hallen strax efter tolv för att hämta mina läsglasögon, de låg kvar i salongen."),
         ("F", "Varför sa du inte det 2019?"),
         ("S", "Ni frågade om vi hade gått ut. Det hade vi inte. Och det var tidigt på morgonen och ingen hade sagt att Henrik var död."),
         ("F", "Vad såg du i hallen?"),
@@ -1705,7 +1712,7 @@ def dok_b21(ut):
         P("Utskrift av den fil som pensionatets lönesystem skickade till banken. Filen innehåller bara anställningsnummer, inte namn.", "brod_liten"),
         luft(3),
         tabell(["Post", "Anst.nr", "Mottagarkonto", "Belopp kr", "Status"], [
-            ["01", "0007", "8327-9, 931 207 554-2", "25 185,00", "Utförd"],
+            ["01", "0007", "6152, 712 004 389", "25 185,00", "Utförd"],
             ["02", "0012", "8214-9, 102 774 551-8", "17 940,00", "Utförd"],
         ], [14 * mm, 20 * mm, 62 * mm, 30 * mm, bredd - 126 * mm], mono=True),
         luft(3),
@@ -1807,7 +1814,7 @@ def dok_losning(ut):
         P("<b>2. Han dog i båthuset.</b> Fyrens trappa är vitmålat gjutjärn (B01, B02 F6). I såret fanns tjärat furuträ och kopparoxidfärg (B03), samma färg som på Tärnan, som målades på torsdagen (B11, B14, B19). Den tjärade åran från båthuset saknar en flisa som passar i såret och har Henriks blod på sig (B19). Sofia hörde Henrik säga \u201dKlockan elva. Ta inte med någon\u201d i telefon (B10), och Anders såg ljus och hörde en duns i båthuset 23.05–23.10 (B11). Vid kvart över elva var båthuset mörkt, och Anders hörde en kärra skramla på strandstigen (B11). Hälarna var skrapade bakåt (B03), och skottkärran har Henriks blod och tång från strandstigen i hjulet (B19). Henrik eldade aldrig i båthuset efter augusti (B07), men kaminen var full av aska och brända papper (B01, B19)."),
         P("<b>3. Personen i regnrocken var lång.</b> Rosorna skakade när personen gick under bågen (B10), vars underkant sitter på 178 cm (B02, F0). Henrik var 169 cm (B03). På Henrik räckte rocken ner på smalbenen, men på personen slutade den ovanför knäna (B07, B10). Ryggsömmen sprack (B19). Personen hade ingen ficklampa (B10), trots att Henrik aldrig gick utan (B07)."),
         P("<b>4. Bara Jonas är möjlig.</b> Längre än 178 cm är Jonas (191), Bengt (186) och Lukas (184) (B08, B09, B13). Lukas var i Norrtälje, och inga båtar gick till ön (B08, B16). Bengt gick med två kryckor och kunde inte ens ta sig till toaletten på natten utan hjälp (B13), men personen i rocken gick fort med händerna i fickorna (B10)."),
-        P("<b>5. Jonas ljuger.</b> Han säger att ingen ringde honom, men Henrik ringde ankn. 104 kl. 22.46 (B15). 104 är rum 1 i personalhuset (B06), och Aisha bor i rum 2 (B12). Han säger att han såg Henrik från sitt fönster, men personalhuset har bara fönster mot öster, bort från grinden (B05). 2026 lägger han till att Henrik hade ficklampan tänd, men personen hade ingen (B09, B10), och ficklampan låg redan i vattnet (B19). Han säger att han inte var i huvudbyggnaden, men Inger såg stora blöta fotspår från rockens krok till köksdörren strax efter tolv (B13). Han säger att han inte varit i båthuset på veckor, men stövlar i storlek 46 med våt färg från Tärnan stod i personalhusets entré (B01, B19). Han säger att han aldrig rört Henriks pärmar, men frågade Lukas efter dem efter begravningen (B08). Han har aldrig hört talas om Kobbskär, men hans morfar hade ett torp där (B07)."),
+        P("<b>5. Jonas ljuger.</b> Han säger att ingen ringde honom, men Henrik ringde ankn. 104 kl. 22.46 (B15). 104 är rum A i personalhuset (B06), och Aisha bor i rum B (B12). Han säger att han såg Henrik från sitt fönster, men personalhuset har bara fönster mot öster, bort från grinden (B05). 2026 lägger han till att Henrik hade ficklampan tänd, men personen hade ingen (B09, B10), och ficklampan låg redan i vattnet (B19). Han säger att han inte var i huvudbyggnaden, men Inger såg stora blöta fotspår från rockens krok till köksdörren strax efter tolv (B13). Han säger att han inte varit i båthuset på veckor, men stövlar i storlek 46 med våt färg från Tärnan stod i personalhusets entré (B01, B19). Han säger att han aldrig rört Henriks pärmar, men frågade Lukas efter dem efter begravningen (B08). Han har aldrig hört talas om Kobbskär, men hans morfar hade ett torp där (B07)."),
         P("<b>6. Motivet.</b> Henrik antecknade \u201dK. F&V 14 st sedan jan, 412,6, fs? kyl? – inget, kst 30? kto??\u201d och \u201dBh 23.00 – pärmen\u201d (B14), sa till Maria att han hittat något konstigt i fakturorna (B07) och skrev att han skulle ta det i kväll (B15). Kobbskär Fisk & Vilt fick 412 600 kr via kostnadsställe 30, köket, som attesterade sina egna inköp (B07, B20). Lukas betalade fakturor januari–april men bara det som redan var attesterat (B08), och Aisha började först i april (B06). Den som attesterade hela året var kökschefen, och Jonas tog emot alla leveranser (B12). Pengarna gick inte till Jonas lönekonto (B21). De gick till Linda Sjöberg i Rimbo (B21), och L. Sjöberg i Rimbo är Jonas anhöriga, hans syster (B06). Kobbskär är holmen där Jonas morfar hade sitt torp (B07). Från kontot köptes en bil i juni 2019 (B21), samma sommar som Jonas skaffade ny Volvo (B12). Jonas hörde på onsdagen att Henrik letade efter pengarna (B08). Jonas ärver inget, har ingen del i vindkraften eller i krogkonkursen. Det enda som binder honom till Henrik är pärmen, som han brände (B19)."),
         CondPageBreak(70 * mm),
         P("Vilka motiv fanns?", "h2"),
@@ -1834,7 +1841,8 @@ def dok_losning(ut):
             ["ca 23.30", "Jonas är tillbaka i båthuset med den tomma kärran och lägger pärmen i kaminen.", "B11, B19"],
             ["ca 23.40", "Jonas tar Henriks regnrock från hallen och går förbi Sofias fönster mot fyren, utan ficklampa. Rocken spricker i ryggen. Han går bara tills han är utom synhåll och vänder. Utebelysningen kan han inte släcka: strömbrytaren sitter innanför den låsta dörren och nyckeln ligger i Henriks ficka.", "B01, B07, B10, B19"],
             ["ca 23.55", "Jonas hänger tillbaka den dyblöta rocken i hallen.", "B12"],
-            ["00.00–00.15", "Jonas spolar kärran och sopar båthuset. Han går in i personalhuset, och Aisha hör dörren.", "B12, B19"],
+            ["ca 00.05", "Inger hämtar sina glasögon och ser den droppande rocken och de blöta fotspåren mot köksdörren. Jonas har redan gått ut den vägen.", "B13"],
+            ["00.00–00.15", "Jonas spolar kärran och sopar båthuset. Strax efter kvart över tolv går han in i personalhuset, och Aisha hör dörren.", "B12, B19"],
             ["lör 06.45", "Anders ser att utebelysningen är tänd och hittar Henrik.", "B11"],
             ["11.20", "Jonas ger polisen en falsk tidpunkt och en falsk iakttagelse.", "B09"],
         ], [22 * mm, bredd - 54 * mm, 32 * mm]),
