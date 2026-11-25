@@ -141,7 +141,9 @@ export function createWebSearch({ db, cfg, artworks, monitor, provider = createP
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'search', ?) ON CONFLICT(artwork_id, image_url) DO NOTHING`,
       a.user_id, a.id, c.pageUrl, c.imageUrl, dist, evidence, t, t, verified ? 1 : 0,
     );
-    return r.changes ? { id: Number(r.lastInsertRowid), artworkId: a.id, pageUrl: c.pageUrl, imageUrl: c.imageUrl, distance: dist } : null;
+    return r.changes
+      ? { id: Number(r.lastInsertRowid), userId: a.user_id, artworkId: a.id, pageUrl: c.pageUrl, imageUrl: c.imageUrl, distance: dist, verified }
+      : null;
   }
 
   /** Searches the web for one artwork. Returns a summary; throws SearchError on provider/budget problems. */
@@ -206,6 +208,7 @@ export function createWebSearch({ db, cfg, artworks, monitor, provider = createP
 
     const status = `OK - ${candidates.length} result(s), ${verified} verified, ${unverified} unverified, ${created.length} new match(es)`;
     db.run('UPDATE artworks SET last_searched_at = ?, last_search_status = ? WHERE id = ?', now(), status, a.id);
+    await monitor.emitMatches(created);
     await monitor.notify(a.user_id, created);
     return { results: candidates.length, verified, unverified, rejected, created, status };
   }
@@ -214,12 +217,17 @@ export function createWebSearch({ db, cfg, artworks, monitor, provider = createP
   async function searchDue(limit = 20) {
     if (!provider) return 0;
     const cutoff = new Date(Date.now() - cfg.searchIntervalDays * 864e5).toISOString();
+    // Hot artworks (trending or just copied) are searched daily.
+    const hotCutoff = new Date(Date.now() - 864e5 + 5 * 60e3).toISOString();
     const due = db.all(
       `SELECT a.id FROM artworks a JOIN users u ON u.id = a.user_id
        WHERE a.web_search = 1 AND a.hidden_at IS NULL AND u.suspended_at IS NULL
-         AND (a.last_searched_at IS NULL OR a.last_searched_at < ?)
-       ORDER BY a.last_searched_at IS NOT NULL, a.last_searched_at LIMIT ?`,
+         AND (a.last_searched_at IS NULL OR a.last_searched_at < CASE WHEN a.hot_until > ? THEN ? ELSE ? END)
+       ORDER BY (a.hot_until > ?) DESC, a.last_searched_at IS NOT NULL, a.last_searched_at LIMIT ?`,
+      now(),
+      hotCutoff,
       cutoff,
+      now(),
       Math.min(limit, remaining()),
     );
     let n = 0;

@@ -4,7 +4,7 @@ import { csrfField, pageHead } from './layout.js';
 const tabs = (path) => {
   const t = (href, label) => html`<a href="${href}" class="${path === href ? 'active' : ''}">${label}</a>`;
   return html`<nav class="tabs">
-    ${t('/admin', 'Overview')}${t('/admin/disputes', 'Disputes')}${t('/admin/users', 'Users')}${t('/admin/log', 'Audit log')}
+    ${t('/admin', 'Overview')}${t('/admin/disputes', 'Disputes')}${t('/admin/users', 'Users')}${t('/admin/offenders', 'Repeat sellers')}${t('/admin/log', 'Audit log')}
   </nav>`;
 };
 const shell = (path, body) => html`<p class="eyebrow">Admin</p>${tabs(path)}${body}`;
@@ -43,6 +43,8 @@ export function overview({ stats, open }) {
   ${stat(stats.matches, 'matches found', '/admin')}
   ${stat(stats.watches, 'monitored pages', '/admin')}
   ${stat(stats.blockedWatches, 'pages blocking the monitor', '/admin')}
+  ${stat(stats.offenders, 'repeat sellers watched', '/admin/offenders')}
+  ${stats.api.map(([p, n, max]) => stat(`${n} / ${max}`, `${p} API calls today`, '/admin'))}
   ${stat(stats.searches, `web searches this month${stats.searchProvider ? ` (${stats.searchProvider})` : ''}`, '/admin')}
 </div>
 <h2>Open disputes</h2>
@@ -194,5 +196,25 @@ ${rows.length
           <td><code>${r.action}</code></td><td>${r.target}</td><td class="small">${r.note}</td></tr>`,
       )}</tbody></table></div>`
   : html`<p class="empty">No actions yet.</p>`}`,
+  );
+}
+
+export function offenders({ csrf, rows }) {
+  return shell(
+    '/admin/offenders',
+    html`${pageHead('Repeat sellers', 'Shops where copies were found. They are re-scanned daily for every artist\'s work. A shop stops being scanned when all its matches are marked "Not a copy".')}
+${rows.length
+  ? html`<div class="table-wrap"><table class="table">
+      <thead><tr><th>Shop</th><th>Matches</th><th>First seen</th><th>Last scan</th><th></th></tr></thead>
+      <tbody>${rows.map(
+        (o) => html`<tr class="${o.active ? '' : 'inactive'}">
+          <td><a href="${o.url}" rel="noopener noreferrer nofollow" target="_blank">${o.label}</a><div class="small muted">${o.kind}</div></td>
+          <td>${o.match_count}</td>
+          <td class="nowrap">${fmtDay(o.first_seen_at)}</td>
+          <td class="small">${o.last_checked_at ? html`${fmtDate(o.last_checked_at)}<br>${o.last_status}` : 'Not yet'}</td>
+          <td><form method="post" action="/admin/offenders/${o.id}/toggle" class="inline">${csrfField(csrf)}<button class="link">${o.active ? 'Pause' : 'Resume'}</button></form></td>
+        </tr>`,
+      )}</tbody></table></div>`
+  : html`<p class="empty">No repeat sellers yet.</p>`}`,
   );
 }

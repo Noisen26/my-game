@@ -23,8 +23,13 @@ const tabs = (path) => {
 
 export const dashShell = (path, body) => html`${tabs(path)}${body}`;
 
-const sourceBadge = (m) =>
-  m.source === 'search' ? html`<span class="badge" title="Found by reverse image search">web search</span>` : '';
+const SOURCES = {
+  search: ['web search', 'Found by reverse image search'],
+  offender: ['repeat seller', 'Found in a shop where copies were found before'],
+  etsy: ['Etsy', 'Found among new Etsy listings'],
+  ebay: ['eBay', 'Found among new eBay listings'],
+};
+const sourceBadge = (m) => (SOURCES[m.source] ? html`<span class="badge" title="${SOURCES[m.source][1]}">${SOURCES[m.source][0]}</span>` : '');
 const similarity = (m) => (m.verified === 0 || m.distance < 0 ? html`<span class="muted">unverified</span>` : `${m.distance}/64`);
 
 const statusBadge = (s) => html`<span class="badge badge-${s}">${STATUS[s] || s}</span>`;
@@ -115,6 +120,9 @@ ${conflict ? html`<p class="small">Existing registration: <a href="/a/${conflict
       <label>Medium <input name="medium" maxlength="80" value="${values.medium}" placeholder="e.g. Gouache on paper"></label>
     </div>
     <label>Description <textarea name="description" maxlength="2000" rows="3">${values.description}</textarea></label>
+    <label>Search keywords (optional)
+      <input name="keywords" maxlength="300" value="${values.keywords}" placeholder="e.g. sunset poster, minimalist landscape print">
+      <small class="muted">How would a shop describe a copy? Up to three phrases, separated by commas. Used to search new marketplace listings. Defaults to the title.</small></label>
     <label>Visibility
       <select name="visibility">
         <option value="public">Public: shown in gallery and on your profile</option>
@@ -141,7 +149,8 @@ ${conflict ? html`<p class="small">Existing registration: <a href="/a/${conflict
   );
 }
 
-export function artworkEdit({ csrf, a, src, matches, search }) {
+export function artworkEdit({ csrf, a, src, matches, search, discovery, views = 0 }) {
+  const hot = discovery.isHot(a);
   return dashShell(
     '/dashboard/artworks',
     html`
@@ -164,6 +173,9 @@ ${pageHead(a.title, html`Registered ${fmtDate(a.created_at)} · <a href="/a/${a.
         <label>Medium <input name="medium" maxlength="80" value="${a.medium}"></label>
       </div>
       <label>Description <textarea name="description" maxlength="2000" rows="4">${a.description}</textarea></label>
+      <label>Search keywords
+        <input name="keywords" maxlength="300" value="${a.keywords}" placeholder="${a.title}">
+        <small class="muted">Up to three phrases, separated by commas, that a shop might use for a copy.</small></label>
       <label>Visibility
         <select name="visibility">
           <option value="public">Public</option>
@@ -175,6 +187,27 @@ ${pageHead(a.title, html`Registered ${fmtDate(a.created_at)} · <a href="/a/${a.
         : ''}
       <button class="btn">Save</button>
     </form>
+    <section class="card-form hotmode ${hot ? 'is-hot' : ''}">
+      <h3>${hot ? '🔥 Close watch is on' : 'Close watch'}</h3>
+      ${hot
+        ? html`<p class="small">Until ${fmtDay(a.hot_until)} (${a.hot_reason}): searched every day instead of every week.</p>
+          <form method="post" action="/dashboard/artworks/${a.id}/hot" class="inline">${csrfField(csrf)}<input type="hidden" name="on" value="0">
+            <button class="btn btn-small btn-ghost">Turn off</button></form>`
+        : html`<p class="small">Copies appear within days of a work starting to trend. Turn this on when it takes off and we search every day for a few weeks.
+            It also turns on by itself when a copy is found or the artwork gets many views.</p>
+          <form method="post" action="/dashboard/artworks/${a.id}/hot" class="inline">${csrfField(csrf)}<input type="hidden" name="on" value="1">
+            <button class="btn btn-small">It's trending: watch closely</button></form>`}
+      <p class="small muted">${views} view${views === 1 ? '' : 's'} on ARTGUARD in the last 7 days.</p>
+    </section>
+    ${discovery.enabled
+      ? html`<section class="card-form">
+          <h3>New marketplace listings</h3>
+          <p class="small">Searches the newest listings on ${discovery.providers.join(' and ')} through their official APIs.</p>
+          <p class="small">${a.last_market_search_at ? html`Last searched ${fmtDate(a.last_market_search_at)}: ${a.last_market_status}` : 'Not searched yet.'}</p>
+          <form method="post" action="/dashboard/artworks/${a.id}/market" class="inline">${csrfField(csrf)}
+            <button class="btn btn-small btn-ghost">Search new listings now</button></form>
+        </section>`
+      : ''}
     <section class="card-form websearch">
       <h3>Web search</h3>
       ${search.enabled

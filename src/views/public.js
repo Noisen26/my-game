@@ -93,6 +93,10 @@ ${pageHead('How it works', 'What we do to protect your work, and what no service
   <p><strong>Web search.</strong> For artworks where you turn it on, we also run a reverse image search across the whole web
   every week, so copies are found even in shops you have never heard of. Every result is downloaded and checked against your
   registration before it is listed, so similar-looking work by other artists is not reported.</p>
+  <p><strong>New listings, fast.</strong> Search engines can take weeks to find a new listing, so we also check the newest Etsy and
+  eBay listings directly through their official APIs. Shops where a copy was found once are re-checked every day for every
+  artist's work. Sellers of stolen posters rarely stop at one. When an artwork starts trending, or a first copy turns up,
+  we put it on close watch and search for it every day for a few weeks.</p>
 
   <h2>4. Get it taken down</h2>
   <p>For every match we generate a DMCA notice (US platforms) or an EU Digital Services Act notice, pre-filled with your details,
@@ -296,7 +300,8 @@ export function legalPage({ cfg, which }) {
   Location and camera metadata are removed from previews.</p>
   <p>We use one session cookie and one security (CSRF) cookie. No tracking, no advertising, no third-party analytics.</p>
   <p>If you turn on web search for an artwork, a downscaled copy of it (max 1024 px) is sent to our reverse image search
-  provider (Google Cloud Vision or TinEye) each time it is searched. It is used only to find matching images.</p>
+  provider (Google Cloud Vision or TinEye), and to eBay's image search, each time it is searched. It is used only to find matching images.</p>
+  <p>We count how many people view each artwork page (one view per visitor per day, without storing who they are) to notice when a work is trending.</p>
   <p>The SHA-256 fingerprint of each original is sent to public OpenTimestamps calendar servers. A fingerprint cannot be
   turned back into your image.</p>
   <p>You can delete individual artworks or your whole account at any time from your dashboard. Deletion removes the

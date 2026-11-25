@@ -25,6 +25,9 @@ import * as auth from './views/auth.js';
 import * as dash from './views/dashboard.js';
 import { createAdminRouter } from './admin.js';
 import { createWebSearch } from './websearch.js';
+import { createUsage, createEtsy, createEbay } from './marketplaces.js';
+import { createOffenders } from './offenders.js';
+import { createDiscovery } from './discovery.js';
 
 const ah = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 const str = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
@@ -40,6 +43,15 @@ export async function createApp(overrides = {}) {
   const artworks = createArtworks({ db, cfg, secrets });
   const monitor = createMonitor({ db, cfg, artworks, mailer, log: cfg.quiet ? {} : console });
   const websearch = createWebSearch({ db, cfg, artworks, monitor, provider: cfg.searchProviderOverride, log: cfg.quiet ? {} : console });
+  const usage = createUsage(db);
+  const etsy = cfg.etsyClientOverride ?? createEtsy(cfg, usage);
+  const ebay = cfg.ebayClientOverride ?? createEbay(cfg, usage);
+  const quietLog = cfg.quiet ? {} : console;
+  const offenders = createOffenders({ db, cfg, monitor, etsy, ebay, log: quietLog });
+  const discovery = createDiscovery({ db, cfg, artworks, monitor, mailer, etsy, ebay, log: quietLog });
+  monitor.addJob(() => offenders.scanDue());
+  monitor.addJob(() => discovery.checkTrending());
+  monitor.addJob(() => discovery.marketplaceDue());
   monitor.addJob(() => websearch.searchDue());
   const sessions = createSessions(db, { secure: cfg.baseUrl.startsWith('https://') });
   const signer = createSigner(createHash('sha256').update(`img:${secrets.appSecret}`).digest('hex'));
@@ -69,7 +81,7 @@ export async function createApp(overrides = {}) {
   const app = express();
   app.disable('x-powered-by');
   app.set('trust proxy', cfg.trustProxy ?? 'loopback');
-  app.locals.ctx = { cfg, db, mailer, monitor, artworks, secrets, websearch };
+  app.locals.ctx = { cfg, db, mailer, monitor, artworks, secrets, websearch, offenders, discovery, usage };
 
   app.use(securityHeaders(cfg));
   app.use(optOutHeaders);
@@ -135,6 +147,7 @@ export async function createApp(overrides = {}) {
     const a = artworks.get(req.params.id);
     if (!canSee(req, a)) return render(req, res, { title: 'Not found', body: notFound() }, 404);
     const isOwner = req.user?.id === a.user_id;
+    if (!isOwner && !req.user?.is_admin) discovery.recordView(a.id, req.ip);
     const certValid = verifyCertificate(secrets, a.certificate, a.signature);
     render(req, res, { title: a.title, description: `${a.title} by ${a.display_name}`, body: pub.artworkPage({ cfg, a, src: preview(a.id), isOwner, csrf: req.csrf, certValid }) });
   });
@@ -300,6 +313,7 @@ export async function createApp(overrides = {}) {
       title: str(req.body.title, 120), year: str(req.body.year, 10), medium: str(req.body.medium, 80),
       description: str(req.body.description, 2000), visibility: req.body.visibility === 'unlisted' ? 'unlisted' : 'public',
       webSearch: req.body.web_search === '1',
+      keywords: str(req.body.keywords, 300),
     };
     const fail = (error, conflict) => dash_(req, res, 'Register artwork', dash.uploadPage({ csrf: req.csrf, error, values, conflict, searchEnabled: websearch.enabled }), 400);
     if (!req.file) return fail('Choose an image file (JPEG, PNG, WebP or TIFF).');
@@ -322,15 +336,29 @@ export async function createApp(overrides = {}) {
   };
   d.get('/artworks/:id', ownArtwork, (req, res) => {
     const matches = db.all('SELECT * FROM matches WHERE artwork_id = ? ORDER BY found_at DESC', req.artwork.id);
-    dash_(req, res, req.artwork.title, dash.artworkEdit({ csrf: req.csrf, a: req.artwork, src: preview(req.artwork.id), matches, search: websearch }));
+    dash_(req, res, req.artwork.title, dash.artworkEdit({ csrf: req.csrf, a: req.artwork, src: preview(req.artwork.id), matches, search: websearch, discovery, views: db.one(`SELECT COALESCE(SUM(n), 0) n FROM artwork_views WHERE artwork_id = ? AND day >= ?`, req.artwork.id, new Date(Date.now() - 6 * 864e5).toISOString().slice(0, 10)).n }));
   });
   d.post('/artworks/:id', csrf, ownArtwork, (req, res) => {
     artworks.update(req.artwork.id, {
       year: str(req.body.year, 10), medium: str(req.body.medium, 80), description: str(req.body.description, 2000), visibility: req.body.visibility,
       webSearch: req.body.web_search === '1',
+      keywords: str(req.body.keywords, 300),
     });
     res.redirect(303, `/dashboard/artworks/${req.artwork.id}?msg=updated`);
   });
+  d.post('/artworks/:id/hot', csrf, ownArtwork, (req, res) => {
+    if (req.body.on === '1') discovery.setHot(req.artwork.id, 'marked by artist');
+    else discovery.clearHot(req.artwork.id);
+    res.redirect(303, `/dashboard/artworks/${req.artwork.id}?msg=updated`);
+  });
+  d.post('/artworks/:id/market', heavyLimit, csrf, ownArtwork, ah(async (req, res) => {
+    const a = req.artwork;
+    if (!discovery.enabled) return res.redirect(303, `/dashboard/artworks/${a.id}?msg=market-unavailable`);
+    if (a.last_market_search_at && Date.now() - Date.parse(a.last_market_search_at) < 3600e3)
+      return res.redirect(303, `/dashboard/artworks/${a.id}?msg=market-recent`);
+    await discovery.searchMarketplaces(a.id);
+    res.redirect(303, `/dashboard/artworks/${a.id}?msg=market-done`);
+  }));
   d.post('/artworks/:id/search', heavyLimit, csrf, ownArtwork, ah(async (req, res) => {
     const a = req.artwork;
     const back = (msg) => res.redirect(303, `/dashboard/artworks/${a.id}?msg=${msg}`);
@@ -440,6 +468,7 @@ export async function createApp(overrides = {}) {
   d.post('/matches/:id', csrf, ownMatch, (req, res) => {
     const status = Object.hasOwn(dash.STATUS, req.body.status) ? req.body.status : req.match.status;
     db.run('UPDATE matches SET status = ?, notes = ?, updated_at = ? WHERE id = ?', status, str(req.body.notes, 2000), now(), req.match.id);
+    offenders.refresh(req.match.offender_id);
     res.redirect(303, `/dashboard/matches/${req.match.id}?msg=updated`);
   });
 
@@ -476,7 +505,7 @@ export async function createApp(overrides = {}) {
   }));
 
   app.use('/dashboard', d);
-  app.use('/admin', createAdminRouter({ cfg, db, artworks, mailer, csrf, render, preview, thumb, ah, websearch }));
+  app.use('/admin', createAdminRouter({ cfg, db, artworks, mailer, csrf, render, preview, thumb, ah, websearch, offenders, usage, discovery }));
 
   // ------------------------------------------------------------------ errors
   app.use((req, res) => render(req, res, { title: 'Not found', body: notFound() }, 404));

@@ -17,6 +17,9 @@ They get independent proof of authorship, and the service finds copies on market
 | **Find copies** | Perceptual fingerprints (DCT pHash over several centre crops, mirrored variants and dHash) recognise resized, recompressed, recoloured, lightly cropped and mirrored copies, plus "poster in a frame" mock-ups. Anyone can check an image at `/check`. |
 | **Marketplace monitor** | Artists add shop, listing or search-result URLs. The monitor extracts product images (og:image, JSON-LD, `img`/`srcset`/lazy attributes), compares them with the artist's works, re-scans every 24 h and e-mails new matches. |
 | **Web search** | Reverse image search across the whole web through Google Cloud Vision (Web Detection) or TinEye. Artists opt in per artwork. Opted-in works are searched weekly, or on demand once a day. Every result is downloaded and checked with our own fingerprints before it becomes a match. Exact matches that cannot be downloaded are listed as *unverified*. There is a hard monthly cap on paid API calls. |
+| **Repeat sellers** | When a copy is found, the seller's shop is remembered: an independent shop, Shopify store, Amazon seller storefront, Etsy shop or eBay seller. It is re-scanned every day for copies of *every* registered artist's work. A shop stops being scanned when all its matches are marked "Not a copy". Artists' own websites and image CDNs are never treated as shops. Admins can pause a shop under *Repeat sellers*. |
+| **Close watch (hot mode)** | For a few weeks (`HOT_DAYS`, 28 by default), an artwork is searched daily instead of weekly. This turns on by itself when a copy is found or the artwork gets `HOT_VIEW_THRESHOLD` views on ARTGUARD in three days, and the artist can also switch it on. Views are counted once per visitor per day, and the artist's own views are excluded. |
+| **New marketplace listings** | The newest Etsy listings (Open API v3, keyword search sorted by creation date) and eBay listings (Browse API image search plus newest-first keyword search) are checked every 3 days, or daily on close watch. Keywords are set per artwork and default to the title. eBay image search only runs for artworks with web-search consent. There are daily API caps per provider. |
 | **Takedowns** | Each match has a DMCA (17 U.S.C. § 512(c)(3)) or EU DSA (Art. 16) notice, pre-filled with the artist's details and evidence. It links to the right reporting channel for Etsy, Amazon, Temu, Shopify and Redbubble, or to a generic guide. Status workflow: new → confirmed → reported → removed / dismissed. |
 | **Anti claim-jacking** | A work that is already registered by someone else, either as the exact file or a perceptual match, cannot be registered again. Anyone can report a false claim. |
 | **Moderation** | An admin area for false-claim disputes. Upholding a dispute hides the work (which lets the real author register it) and can also suspend the owner. Rejecting keeps the work. Both parties are e-mailed. There is also user search, suspend/lift, hide, unhide and delete for artworks, and an audit log of every action. Hidden works and suspended accounts disappear from the gallery, profiles, images, certificates, "Find copies" and the monitor. |
@@ -36,7 +39,7 @@ Requires Node.js ≥ 22.13 (uses the built-in `node:sqlite`).
 npm install
 npm start          # http://localhost:3000
 npm run dev        # restart on file changes
-npm test           # 55 unit and integration tests
+npm test           # 68 unit and integration tests
 ```
 
 Configuration is done with environment variables. See [`.env.example`](.env.example). For production:
@@ -75,7 +78,7 @@ The monitor identifies itself as `ArtguardMonitor/1.0` (explained at `/bot`) and
 | Redbubble | ⛔ Cloudflare challenge. Reported as blocked. |
 | OpenTimestamps | ✅ Real proofs created. The official `ots info` client reads them. |
 
-For Etsy, an integration with Etsy's official Open API (which needs an API key) is the right way forward, not scraping.
+Etsy and eBay are covered through their official APIs (see below), not by scraping.
 
 If your server can only reach the internet through a proxy, set `OUTBOUND_PROXY=http://proxy:port`. Node's `fetch` does not follow `HTTPS_PROXY` by itself.
 
@@ -103,6 +106,9 @@ src/
   monitor.js      page scanning, image extraction, scheduler, alerts
   fetcher.js      SSRF-safe HTTP client
   takedown.js     DMCA / DSA notices, platform channels
+  marketplaces.js Etsy Open API v3 and eBay Browse API clients, daily API caps
+  offenders.js    repeat sellers: shop derivation and daily re-scans
+  discovery.js    close watch (hot mode), view counting, marketplace sweeps
   websearch.js    reverse image search (Google Vision / TinEye), verification, budget
   extract.js      product-image extraction, CDN normalisation, block detection, Shopify
   admin.js        moderation routes

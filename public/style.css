@@ -269,3 +269,5 @@ dl.kv { display: grid; grid-template-columns: auto 1fr; gap: .3rem 1rem; }
 dl.kv dt { color: var(--muted); }
 dl.kv dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
 .card-form + .card-form { margin-top: 1rem; }
+.hotmode.is-hot { border-color: #e07a3a; background: color-mix(in srgb, #e07a3a 8%, var(--surface)); }
+.card-form h3 { margin-top: 0; }

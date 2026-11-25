@@ -119,6 +119,33 @@ const MIGRATIONS = [
   ALTER TABLE matches ADD COLUMN source TEXT NOT NULL DEFAULT 'monitor';
   ALTER TABLE matches ADD COLUMN verified INTEGER NOT NULL DEFAULT 1;
   CREATE TABLE search_usage (month TEXT PRIMARY KEY, count INTEGER NOT NULL DEFAULT 0);`,
+  // 4: discovery of new listings (repeat offenders, hot mode, marketplace APIs)
+  `ALTER TABLE artworks ADD COLUMN keywords TEXT NOT NULL DEFAULT '';
+  ALTER TABLE artworks ADD COLUMN hot_until TEXT;
+  ALTER TABLE artworks ADD COLUMN hot_reason TEXT NOT NULL DEFAULT '';
+  ALTER TABLE artworks ADD COLUMN last_market_search_at TEXT;
+  ALTER TABLE artworks ADD COLUMN last_market_status TEXT NOT NULL DEFAULT '';
+  ALTER TABLE matches ADD COLUMN offender_id INTEGER;
+  CREATE TABLE artwork_views (
+    artwork_id TEXT NOT NULL REFERENCES artworks(id) ON DELETE CASCADE,
+    day TEXT NOT NULL,
+    n INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (artwork_id, day)
+  );
+  CREATE TABLE offenders (
+    id INTEGER PRIMARY KEY,
+    kind TEXT NOT NULL,            -- web | amazon | etsy | ebay
+    ref TEXT NOT NULL,             -- origin, seller id, shop id or username
+    url TEXT NOT NULL,
+    label TEXT NOT NULL DEFAULT '',
+    active INTEGER NOT NULL DEFAULT 1,
+    match_count INTEGER NOT NULL DEFAULT 0,
+    first_seen_at TEXT NOT NULL,
+    last_checked_at TEXT,
+    last_status TEXT NOT NULL DEFAULT '',
+    UNIQUE (kind, ref)
+  );
+  CREATE TABLE api_usage (day TEXT NOT NULL, provider TEXT NOT NULL, count INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (day, provider));`,
 ];
 
 export function openDb(dataDir) {

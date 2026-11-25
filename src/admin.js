@@ -8,7 +8,7 @@ import * as view from './views/admin.js';
 
 const str = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
 
-export function createAdminRouter({ cfg, db, artworks, mailer, csrf, render, preview, thumb, ah, websearch }) {
+export function createAdminRouter({ cfg, db, artworks, mailer, csrf, render, preview, thumb, ah, websearch, offenders, usage, discovery }) {
   const r = express.Router();
   r.use(requireAdmin);
   const page = (req, res, title, body, status) => render(req, res, { title: `Admin · ${title}`, body }, status);
@@ -46,6 +46,8 @@ export function createAdminRouter({ cfg, db, artworks, mailer, csrf, render, pre
       blockedWatches: n(`SELECT COUNT(*) n FROM watches WHERE active = 1 AND last_status LIKE 'Blocked:%'`),
       searches: websearch?.enabled ? `${websearch.used()} / ${cfg.searchMonthlyLimit}` : 'off',
       searchProvider: websearch?.providerName,
+      offenders: n('SELECT COUNT(*) n FROM offenders WHERE active = 1'),
+      api: (discovery?.providers || []).map((p) => [p, usage.used(p.toLowerCase()), p === 'Etsy' ? cfg.etsyDailyLimit : cfg.ebayDailyLimit]),
     };
     page(req, res, 'Overview', view.overview({ stats, open: db.all(`${DISPUTES} WHERE d.status = 'open' ORDER BY d.created_at LIMIT 20`) }));
   });
@@ -202,6 +204,22 @@ export function createAdminRouter({ cfg, db, artworks, mailer, csrf, render, pre
     await notifyOwner(req.owner, req.artwork, 'removed', note);
     res.redirect(303, `/admin/users/${req.owner.id}?msg=deleted`);
   }));
+
+  r.get('/offenders', (req, res) =>
+    page(req, res, 'Repeat sellers', view.offenders({ csrf: req.csrf, rows: db.all('SELECT * FROM offenders ORDER BY active DESC, match_count DESC, first_seen_at DESC LIMIT 500') })),
+  );
+  r.post('/offenders/:id/toggle', csrf, (req, res) => {
+    const o = db.one('SELECT * FROM offenders WHERE id = ?', Number(req.params.id));
+    if (!o) return page(req, res, 'Not found', notFound(), 404);
+    if (o.active) db.run(`UPDATE offenders SET active = 0, last_status = ? WHERE id = ?`, `Paused by @${req.user.handle}`, o.id);
+    else {
+      db.run(`UPDATE offenders SET last_status = '' WHERE id = ?`, o.id);
+      offenders.refresh(o.id);
+      db.run('UPDATE offenders SET active = 1 WHERE id = ?', o.id);
+    }
+    log(req, o.active ? 'offender.pause' : 'offender.resume', o.label);
+    res.redirect(303, '/admin/offenders');
+  });
 
   r.get('/log', (req, res) =>
     page(req, res, 'Audit log', view.log({ rows: db.all('SELECT l.*, u.handle admin_handle FROM admin_log l LEFT JOIN users u ON u.id = l.admin_id ORDER BY l.id DESC LIMIT 500') })),

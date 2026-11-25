@@ -108,18 +108,18 @@ export function createArtworks({ db, cfg, secrets }) {
       await writeFile(api.thumbPath(id), thumb);
       db.run(
         `INSERT INTO artworks (id, user_id, title, description, year, medium, format, width, height, bytes, sha256, dhash, phashes,
-           certificate, signature, visibility, created_at, web_search)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           certificate, signature, visibility, created_at, web_search, keywords)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         id, user.id, fields.title, fields.description || '', fields.year || '', fields.medium || '', ext, meta.width, meta.height,
-        buf.length, sha, fp.dhash, JSON.stringify(fp.phashes), body, signature, fields.visibility === 'unlisted' ? 'unlisted' : 'public', createdAt, fields.webSearch ? 1 : 0,
+        buf.length, sha, fp.dhash, JSON.stringify(fp.phashes), body, signature, fields.visibility === 'unlisted' ? 'unlisted' : 'public', createdAt, fields.webSearch ? 1 : 0, fields.keywords || '',
       );
       return api.get(id);
     },
 
     update(id, fields) {
       db.run(
-        'UPDATE artworks SET description = ?, year = ?, medium = ?, visibility = ?, web_search = ? WHERE id = ?',
-        fields.description || '', fields.year || '', fields.medium || '', fields.visibility === 'unlisted' ? 'unlisted' : 'public', fields.webSearch ? 1 : 0, id,
+        'UPDATE artworks SET description = ?, year = ?, medium = ?, visibility = ?, web_search = ?, keywords = ? WHERE id = ?',
+        fields.description || '', fields.year || '', fields.medium || '', fields.visibility === 'unlisted' ? 'unlisted' : 'public', fields.webSearch ? 1 : 0, fields.keywords || '', id,
       );
     },
 

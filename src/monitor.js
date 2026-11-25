@@ -27,21 +27,47 @@ async function pool(items, size, fn) {
 export function createMonitor({ db, cfg, artworks, mailer, log = console }) {
   const fetchOpts = { allowPrivate: !!cfg.allowPrivateFetch };
 
-  /** Check one image buffer against a user's artworks and record matches. */
-  function recordMatches(userId, pageUrl, imageUrl, buf, fp) {
-    const hits = artworks.findMatches(fp, { userId });
+  const matchHooks = [];
+
+  /**
+   * Checks one image against registered artworks and records matches.
+   * With a userId only that artist's works are compared (their own monitor);
+   * without one, every publicly visible work is (repeat-offender scans).
+   */
+  function recordMatches(userId, pageUrl, imageUrl, buf, fp, source = 'monitor') {
+    const hits = userId ? artworks.findMatches(fp, { userId }) : artworks.findMatches(fp);
     const created = [];
     const evidence = sha256(buf);
     for (const h of hits) {
       const t = now();
       const r = db.run(
-        `INSERT INTO matches (user_id, artwork_id, page_url, image_url, distance, evidence_sha256, found_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(artwork_id, image_url) DO NOTHING`,
-        userId, h.id, pageUrl, imageUrl, h.distance, evidence, t, t,
+        `INSERT INTO matches (user_id, artwork_id, page_url, image_url, distance, evidence_sha256, found_at, updated_at, source)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(artwork_id, image_url) DO NOTHING`,
+        h.user_id, h.id, pageUrl, imageUrl, h.distance, evidence, t, t, source,
       );
-      if (r.changes) created.push({ id: Number(r.lastInsertRowid), artworkId: h.id, imageUrl, pageUrl, distance: h.distance });
+      if (r.changes)
+        created.push({ id: Number(r.lastInsertRowid), userId: h.user_id, artworkId: h.id, imageUrl, pageUrl, distance: h.distance, verified: true });
     }
     return { hits, created };
+  }
+
+  /** Lets other modules react to new matches (offender tracking, hot mode). */
+  async function emitMatches(created, ctx = {}) {
+    if (!created.length) return;
+    for (const fn of matchHooks) {
+      try {
+        await fn(created, ctx);
+      } catch (e) {
+        log.warn?.('[monitor] match hook failed:', e.message);
+      }
+    }
+  }
+
+  /** E-mails each affected artist about their own new matches. */
+  async function notifyAll(created) {
+    const byUser = new Map();
+    for (const c of created) byUser.set(c.userId, [...(byUser.get(c.userId) || []), c]);
+    for (const [userId, list] of byUser) await notify(userId, list);
   }
 
   const opts = (extra) => ({ ...fetchOpts, ua: userAgent(cfg.baseUrl), ...extra });
@@ -74,31 +100,49 @@ export function createMonitor({ db, cfg, artworks, mailer, log = console }) {
     return { page, imageUrls: extractImageUrls(page.body.toString('utf8'), page.url), source: 'html' };
   }
 
-  async function scan(userId, rawUrl) {
-    const { page, imageUrls, direct, source } = await imagesFor(rawUrl);
+  const fetchImage = async (url) => {
+    const r = await safeFetch(url, opts({ maxBytes: 15 * 1024 * 1024, accept: 'image/avif,image/webp,image/*' }));
+    if (r.status >= 400) throw new Error(`HTTP ${r.status}`);
+    return r.body;
+  };
+
+  /**
+   * Downloads and checks a list of images: [{ pageUrl, imageUrl, buf? }].
+   * Returns counts plus the matches created (not yet notified).
+   */
+  async function checkImages(items, { userId = null, source = 'monitor' } = {}) {
+    let checked = 0;
+    let failed = 0;
+    const created = [];
+    const hits = [];
+    await pool(items, 6, async (it) => {
+      try {
+        const buf = it.buf ?? (await fetchImage(it.imageUrl));
+        const fp = await fingerprint(buf, SUSPECT_CROPS);
+        checked++;
+        const r = recordMatches(userId, it.pageUrl, it.imageUrl, buf, fp, source);
+        created.push(...r.created);
+        hits.push(...r.hits.map((h) => ({ ...h, imageUrl: it.imageUrl })));
+      } catch {
+        failed++;
+      }
+    });
+    return { checked, failed, created, hits };
+  }
+
+  async function scan(userId, rawUrl, { source = 'monitor' } = {}) {
+    const { page, imageUrls, direct, source: via } = await imagesFor(rawUrl);
     if (!imageUrls.length)
       throw new Error(
         'No product images were found in the page. It is probably built with JavaScript in the browser ' +
           '(Temu search pages are, for example). Try the URLs of individual product pages instead.',
       );
-    let checked = 0;
-    let failed = 0;
-    const created = [];
-    const hits = [];
-    await pool(imageUrls, 6, async (imgUrl) => {
-      try {
-        const buf = direct ?? (await safeFetch(imgUrl, opts({ maxBytes: 15 * 1024 * 1024, accept: 'image/avif,image/webp,image/*' }))).body;
-        const fp = await fingerprint(buf, SUSPECT_CROPS);
-        checked++;
-        const r = recordMatches(userId, page.url, imgUrl, buf, fp);
-        created.push(...r.created);
-        hits.push(...r.hits.map((h) => ({ ...h, imageUrl: imgUrl })));
-      } catch {
-        failed++;
-      }
-    });
-    if (!checked && failed) throw new Error(`Found ${failed} images, but none could be downloaded. The image server may block automated access.`);
-    return { pageUrl: page.url, found: imageUrls.length, checked, failed, created, hits, source };
+    const items = imageUrls.map((imageUrl) => ({ pageUrl: page.url, imageUrl, buf: direct ?? undefined }));
+    const r = await checkImages(items, { userId, source });
+    if (!r.checked && r.failed) throw new Error(`Found ${r.failed} images, but none could be downloaded. The image server may block automated access.`);
+    const html = /^text\/html/i.test(page.contentType) ? page.body.toString('utf8') : '';
+    await emitMatches(r.created, { html, pageUrl: page.url });
+    return { pageUrl: page.url, found: imageUrls.length, ...r, source: via };
   }
 
   async function notify(userId, created) {
@@ -156,7 +200,11 @@ export function createMonitor({ db, cfg, artworks, mailer, log = console }) {
   return {
     scan,
     scanWatch,
+    checkImages,
+    emitMatches,
     notify,
+    notifyAll,
+    onMatches: (fn) => matchHooks.push(fn),
     recordMatches,
     stampPending,
     runDue,

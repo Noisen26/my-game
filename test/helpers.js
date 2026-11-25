@@ -152,7 +152,7 @@ export async function startShop(images) {
       return res.writeHead(200, { 'content-type': 'text/html' }).end('<html><link href="//cdn.shopify.com/s/files/theme.css"><div class="shopify-section">Only a placeholder image here</div></html>');
     if (req.url === '/shopify/products/sunset.json')
       return res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ product: { images: images.map((_, i) => ({ src: `/img/${i}.jpg` })) } }));
-    if (req.url === '/product')
+    if (req.url === '/product' || req.url === '/')
       return res.writeHead(200, { 'content-type': 'text/html' }).end(`<!doctype html><html><head>
         <meta property="og:image" content="/img/0.jpg">
         <script type="application/ld+json">{"@type":"Product","image":["/img/1.jpg"]}</script>

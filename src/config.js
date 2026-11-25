@@ -29,6 +29,21 @@ export function loadConfig(overrides = {}) {
     tineyeKey: env.TINEYE_API_KEY || null,
     searchIntervalDays: Number(env.SEARCH_INTERVAL_DAYS) || 7,
     searchMonthlyLimit: Number(env.SEARCH_MONTHLY_LIMIT) || 1000, // hard cap on paid API calls per calendar month
+    // Marketplace APIs (official): new listings are visible there long before search engines index them
+    etsyApiKey: env.ETSY_API_KEY || null,
+    etsySharedSecret: env.ETSY_SHARED_SECRET || null,
+    ebayClientId: env.EBAY_CLIENT_ID || null,
+    ebayClientSecret: env.EBAY_CLIENT_SECRET || null,
+    ebayMarketplace: env.EBAY_MARKETPLACE_ID || 'EBAY_US',
+    etsyDailyLimit: Number(env.ETSY_DAILY_LIMIT) || 4000,
+    ebayDailyLimit: Number(env.EBAY_DAILY_LIMIT) || 4000,
+    marketSearchIntervalDays: Number(env.MARKET_SEARCH_INTERVAL_DAYS) || 3,
+    // Hot mode: daily searches while an artwork is trending or has just been copied
+    hotDays: Number(env.HOT_DAYS) || 28,
+    hotViewThreshold: Number(env.HOT_VIEW_THRESHOLD) || 150, // views in 3 days
+    // Repeat offenders: shops where a copy was found are re-scanned for every artist's work
+    offenderRescanHours: Number(env.OFFENDER_RESCAN_HOURS) || 24,
+    offendersPerTick: Number(env.OFFENDERS_PER_TICK) || 20,
     previewMaxPx: 1000,
     maxUploadBytes: 40 * 1024 * 1024,
     maxArtworksPerUser: Number(env.MAX_ARTWORKS_PER_USER) || 500,
