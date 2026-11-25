@@ -23,6 +23,12 @@ export function loadConfig(overrides = {}) {
     scheduler: env.DISABLE_SCHEDULER !== '1',
     adminEmail: env.ADMIN_EMAIL || null, // receives false-claim reports
     trustProxy: env.TRUST_PROXY ? (/^\d+$/.test(env.TRUST_PROXY) ? Number(env.TRUST_PROXY) : env.TRUST_PROXY) : 'loopback',
+    // Reverse image search: 'google' (Cloud Vision Web Detection) or 'tineye'
+    searchProvider: (env.SEARCH_PROVIDER || (env.GOOGLE_VISION_API_KEY ? 'google' : env.TINEYE_API_KEY ? 'tineye' : '')).toLowerCase(),
+    googleVisionKey: env.GOOGLE_VISION_API_KEY || null,
+    tineyeKey: env.TINEYE_API_KEY || null,
+    searchIntervalDays: Number(env.SEARCH_INTERVAL_DAYS) || 7,
+    searchMonthlyLimit: Number(env.SEARCH_MONTHLY_LIMIT) || 1000, // hard cap on paid API calls per calendar month
     previewMaxPx: 1000,
     maxUploadBytes: 40 * 1024 * 1024,
     maxArtworksPerUser: Number(env.MAX_ARTWORKS_PER_USER) || 500,

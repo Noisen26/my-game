@@ -90,6 +90,9 @@ ${pageHead('How it works', 'What we do to protect your work, and what no service
   compare it with your registered works and repeat the scan every ${cfg.rescanHours} hours. Matching tolerates resizing, compression,
   colour changes, light cropping and many "poster in a frame" mock-ups. When something matches you get an e-mail.</p>
   <p>You can also <a href="/check">upload any image</a> to see whether it matches a registered work.</p>
+  <p><strong>Web search.</strong> For artworks where you turn it on, we also run a reverse image search across the whole web
+  every week, so copies are found even in shops you have never heard of. Every result is downloaded and checked against your
+  registration before it is listed, so similar-looking work by other artists is not reported.</p>
 
   <h2>4. Get it taken down</h2>
   <p>For every match we generate a DMCA notice (US platforms) or an EU Digital Services Act notice, pre-filled with your details,
@@ -292,6 +295,8 @@ export function legalPage({ cfg, which }) {
   <p>Original files are stored privately and are never published. Only watermarked previews are shown publicly.
   Location and camera metadata are removed from previews.</p>
   <p>We use one session cookie and one security (CSRF) cookie. No tracking, no advertising, no third-party analytics.</p>
+  <p>If you turn on web search for an artwork, a downscaled copy of it (max 1024 px) is sent to our reverse image search
+  provider (Google Cloud Vision or TinEye) each time it is searched. It is used only to find matching images.</p>
   <p>The SHA-256 fingerprint of each original is sent to public OpenTimestamps calendar servers. A fingerprint cannot be
   turned back into your image.</p>
   <p>You can delete individual artworks or your whole account at any time from your dashboard. Deletion removes the

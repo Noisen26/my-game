@@ -24,6 +24,7 @@ import * as pub from './views/public.js';
 import * as auth from './views/auth.js';
 import * as dash from './views/dashboard.js';
 import { createAdminRouter } from './admin.js';
+import { createWebSearch } from './websearch.js';
 
 const ah = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 const str = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
@@ -38,6 +39,8 @@ export async function createApp(overrides = {}) {
   const mailer = createMailer(cfg);
   const artworks = createArtworks({ db, cfg, secrets });
   const monitor = createMonitor({ db, cfg, artworks, mailer, log: cfg.quiet ? {} : console });
+  const websearch = createWebSearch({ db, cfg, artworks, monitor, provider: cfg.searchProviderOverride, log: cfg.quiet ? {} : console });
+  monitor.addJob(() => websearch.searchDue());
   const sessions = createSessions(db, { secure: cfg.baseUrl.startsWith('https://') });
   const signer = createSigner(createHash('sha256').update(`img:${secrets.appSecret}`).digest('hex'));
   const csrf = csrfCheck(cfg);
@@ -66,7 +69,7 @@ export async function createApp(overrides = {}) {
   const app = express();
   app.disable('x-powered-by');
   app.set('trust proxy', cfg.trustProxy ?? 'loopback');
-  app.locals.ctx = { cfg, db, mailer, monitor, artworks, secrets };
+  app.locals.ctx = { cfg, db, mailer, monitor, artworks, secrets, websearch };
 
   app.use(securityHeaders(cfg));
   app.use(optOutHeaders);
@@ -291,13 +294,14 @@ export async function createApp(overrides = {}) {
 
   d.get('/artworks', (req, res) => dash_(req, res, 'Artworks', dash.artworksList({ items: artworks.byUser(req.user.id), thumb })));
 
-  d.get('/upload', (req, res) => dash_(req, res, 'Register artwork', dash.uploadPage({ csrf: req.csrf })));
+  d.get('/upload', (req, res) => dash_(req, res, 'Register artwork', dash.uploadPage({ csrf: req.csrf, searchEnabled: websearch.enabled })));
   d.post('/upload', heavyLimit, uploadImage, csrf, ah(async (req, res) => {
     const values = {
       title: str(req.body.title, 120), year: str(req.body.year, 10), medium: str(req.body.medium, 80),
       description: str(req.body.description, 2000), visibility: req.body.visibility === 'unlisted' ? 'unlisted' : 'public',
+      webSearch: req.body.web_search === '1',
     };
-    const fail = (error, conflict) => dash_(req, res, 'Register artwork', dash.uploadPage({ csrf: req.csrf, error, values, conflict }), 400);
+    const fail = (error, conflict) => dash_(req, res, 'Register artwork', dash.uploadPage({ csrf: req.csrf, error, values, conflict, searchEnabled: websearch.enabled }), 400);
     if (!req.file) return fail('Choose an image file (JPEG, PNG, WebP or TIFF).');
     if (!values.title) return fail('Give your artwork a title.');
     try {
@@ -318,14 +322,29 @@ export async function createApp(overrides = {}) {
   };
   d.get('/artworks/:id', ownArtwork, (req, res) => {
     const matches = db.all('SELECT * FROM matches WHERE artwork_id = ? ORDER BY found_at DESC', req.artwork.id);
-    dash_(req, res, req.artwork.title, dash.artworkEdit({ csrf: req.csrf, a: req.artwork, src: preview(req.artwork.id), matches }));
+    dash_(req, res, req.artwork.title, dash.artworkEdit({ csrf: req.csrf, a: req.artwork, src: preview(req.artwork.id), matches, search: websearch }));
   });
   d.post('/artworks/:id', csrf, ownArtwork, (req, res) => {
     artworks.update(req.artwork.id, {
       year: str(req.body.year, 10), medium: str(req.body.medium, 80), description: str(req.body.description, 2000), visibility: req.body.visibility,
+      webSearch: req.body.web_search === '1',
     });
     res.redirect(303, `/dashboard/artworks/${req.artwork.id}?msg=updated`);
   });
+  d.post('/artworks/:id/search', heavyLimit, csrf, ownArtwork, ah(async (req, res) => {
+    const a = req.artwork;
+    const back = (msg) => res.redirect(303, `/dashboard/artworks/${a.id}?msg=${msg}`);
+    if (!websearch.enabled) return back('search-unavailable');
+    if (a.hidden_at) return back('search-failed');
+    if (a.last_searched_at && Date.now() - Date.parse(a.last_searched_at) < 864e5) return back('search-recent');
+    if (!websearch.remaining()) return back('search-budget');
+    try {
+      await websearch.searchArtwork(a.id);
+      back('search-done');
+    } catch {
+      back('search-failed');
+    }
+  }));
   d.post('/artworks/:id/delete', csrf, ownArtwork, ah(async (req, res) => {
     await artworks.remove(req.artwork.id);
     res.redirect(303, '/dashboard/artworks?msg=deleted');
@@ -457,7 +476,7 @@ export async function createApp(overrides = {}) {
   }));
 
   app.use('/dashboard', d);
-  app.use('/admin', createAdminRouter({ cfg, db, artworks, mailer, csrf, render, preview, thumb, ah }));
+  app.use('/admin', createAdminRouter({ cfg, db, artworks, mailer, csrf, render, preview, thumb, ah, websearch }));
 
   // ------------------------------------------------------------------ errors
   app.use((req, res) => render(req, res, { title: 'Not found', body: notFound() }, 404));

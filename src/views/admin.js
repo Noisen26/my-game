@@ -43,6 +43,7 @@ export function overview({ stats, open }) {
   ${stat(stats.matches, 'matches found', '/admin')}
   ${stat(stats.watches, 'monitored pages', '/admin')}
   ${stat(stats.blockedWatches, 'pages blocking the monitor', '/admin')}
+  ${stat(stats.searches, `web searches this month${stats.searchProvider ? ` (${stats.searchProvider})` : ''}`, '/admin')}
 </div>
 <h2>Open disputes</h2>
 ${disputeTable(open)}`,

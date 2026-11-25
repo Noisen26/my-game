@@ -13,6 +13,11 @@ const FLASH = {
   'watch-added': ['ok', 'Page added to monitoring. It has been scanned once and will be re-scanned automatically.'],
   'dispute-sent': ['ok', 'Thank you. Your report has been received and will be reviewed.'],
   'signed-out': ['ok', 'You have been signed out.'],
+  'search-done': ['ok', 'Web search finished. See the result below; new matches are listed under Matches.'],
+  'search-recent': ['err', 'This artwork was searched in the last 24 hours. Try again tomorrow.'],
+  'search-budget': ['err', "This month's web search budget has been used up. Searches resume next month."],
+  'search-unavailable': ['err', 'Web search is not configured on this server yet.'],
+  'search-failed': ['err', 'The web search could not be completed. See the status below and try again later.'],
 };
 
 export function flash(key) {

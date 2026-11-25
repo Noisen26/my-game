@@ -8,7 +8,7 @@ import * as view from './views/admin.js';
 
 const str = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
 
-export function createAdminRouter({ cfg, db, artworks, mailer, csrf, render, preview, thumb, ah }) {
+export function createAdminRouter({ cfg, db, artworks, mailer, csrf, render, preview, thumb, ah, websearch }) {
   const r = express.Router();
   r.use(requireAdmin);
   const page = (req, res, title, body, status) => render(req, res, { title: `Admin · ${title}`, body }, status);
@@ -44,6 +44,8 @@ export function createAdminRouter({ cfg, db, artworks, mailer, csrf, render, pre
       matches: n('SELECT COUNT(*) n FROM matches'),
       watches: n('SELECT COUNT(*) n FROM watches WHERE active = 1'),
       blockedWatches: n(`SELECT COUNT(*) n FROM watches WHERE active = 1 AND last_status LIKE 'Blocked:%'`),
+      searches: websearch?.enabled ? `${websearch.used()} / ${cfg.searchMonthlyLimit}` : 'off',
+      searchProvider: websearch?.providerName,
     };
     page(req, res, 'Overview', view.overview({ stats, open: db.all(`${DISPUTES} WHERE d.status = 'open' ORDER BY d.created_at LIMIT 20`) }));
   });

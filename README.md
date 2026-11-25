@@ -16,6 +16,7 @@ They get independent proof of authorship, and the service finds copies on market
 | **Verify** | `/verify` hashes a file *in the browser*, so the file itself is never uploaded, and confirms whether it is a registered original. |
 | **Find copies** | Perceptual fingerprints (DCT pHash over several centre crops, mirrored variants and dHash) recognise resized, recompressed, recoloured, lightly cropped and mirrored copies, plus "poster in a frame" mock-ups. Anyone can check an image at `/check`. |
 | **Marketplace monitor** | Artists add shop, listing or search-result URLs. The monitor extracts product images (og:image, JSON-LD, `img`/`srcset`/lazy attributes), compares them with the artist's works, re-scans every 24 h and e-mails new matches. |
+| **Web search** | Reverse image search across the whole web through Google Cloud Vision (Web Detection) or TinEye. Artists opt in per artwork. Opted-in works are searched weekly, or on demand once a day. Every result is downloaded and checked with our own fingerprints before it becomes a match. Exact matches that cannot be downloaded are listed as *unverified*. There is a hard monthly cap on paid API calls. |
 | **Takedowns** | Each match has a DMCA (17 U.S.C. § 512(c)(3)) or EU DSA (Art. 16) notice, pre-filled with the artist's details and evidence. It links to the right reporting channel for Etsy, Amazon, Temu, Shopify and Redbubble, or to a generic guide. Status workflow: new → confirmed → reported → removed / dismissed. |
 | **Anti claim-jacking** | A work that is already registered by someone else, either as the exact file or a perceptual match, cannot be registered again. Anyone can report a false claim. |
 | **Moderation** | An admin area for false-claim disputes. Upholding a dispute hides the work (which lets the real author register it) and can also suspend the owner. Rejecting keeps the work. Both parties are e-mailed. There is also user search, suspend/lift, hide, unhide and delete for artworks, and an audit log of every action. Hidden works and suspended accounts disappear from the gallery, profiles, images, certificates, "Find copies" and the monitor. |
@@ -35,7 +36,7 @@ Requires Node.js ≥ 22.13 (uses the built-in `node:sqlite`).
 npm install
 npm start          # http://localhost:3000
 npm run dev        # restart on file changes
-npm test           # 46 unit and integration tests
+npm test           # 55 unit and integration tests
 ```
 
 Configuration is done with environment variables. See [`.env.example`](.env.example). For production:
@@ -102,6 +103,7 @@ src/
   monitor.js      page scanning, image extraction, scheduler, alerts
   fetcher.js      SSRF-safe HTTP client
   takedown.js     DMCA / DSA notices, platform channels
+  websearch.js    reverse image search (Google Vision / TinEye), verification, budget
   extract.js      product-image extraction, CDN normalisation, block detection, Shopify
   admin.js        moderation routes
   mailer.js       SMTP (or console when not configured)
@@ -113,7 +115,6 @@ test/             unit and integration tests (fake shop and fake OTS calendar)
 
 ## Roadmap ideas
 
-- Reverse image search providers (e.g. TinEye API) so the monitor can discover shops without the artist supplying URLs.
 - Invisible, screenshot-robust watermark (e.g. TrustMark) to read an artwork ID out of a stolen image.
 - C2PA Content Credentials embedded in previews.
 - An embedding-based index (CLIP) for heavier crops and mock-ups, and a vector index once the catalogue grows.

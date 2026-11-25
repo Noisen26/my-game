@@ -50,6 +50,9 @@ const openAgent = new Agent({ connect: { timeout: 10_000 }, headersTimeout: 15_0
 const PROXY = process.env.OUTBOUND_PROXY || null;
 const proxyAgent = PROXY ? new ProxyAgent({ uri: PROXY, headersTimeout: 15_000, bodyTimeout: 20_000 }) : null;
 
+/** Dispatcher for calls to fixed, configured APIs (honours OUTBOUND_PROXY). */
+export const apiDispatcher = () => proxyAgent || undefined;
+
 /** Dispatcher for outbound requests to public hosts. */
 export const outboundDispatcher = () => proxyAgent || publicAgent;
 

@@ -23,6 +23,10 @@ const tabs = (path) => {
 
 export const dashShell = (path, body) => html`${tabs(path)}${body}`;
 
+const sourceBadge = (m) =>
+  m.source === 'search' ? html`<span class="badge" title="Found by reverse image search">web search</span>` : '';
+const similarity = (m) => (m.verified === 0 || m.distance < 0 ? html`<span class="muted">unverified</span>` : `${m.distance}/64`);
+
 const statusBadge = (s) => html`<span class="badge badge-${s}">${STATUS[s] || s}</span>`;
 const hostOf = (u) => {
   try {
@@ -66,8 +70,8 @@ function matchTable(rows, artworksById) {
     const a = artworksById[m.artwork_id];
     return html`<tr>
     <td>${a ? a.title : m.artwork_id}</td>
-    <td><a href="${m.page_url}" rel="noopener noreferrer nofollow" target="_blank">${hostOf(m.page_url)}</a></td>
-    <td>${m.distance}/64</td>
+    <td><a href="${m.page_url}" rel="noopener noreferrer nofollow" target="_blank">${hostOf(m.page_url)}</a> ${sourceBadge(m)}</td>
+    <td>${similarity(m)}</td>
     <td>${fmtDay(m.found_at)}</td>
     <td>${statusBadge(m.status)}</td>
     <td><a href="/dashboard/matches/${m.id}">Review →</a></td>
@@ -93,7 +97,7 @@ ${items.length
   );
 }
 
-export function uploadPage({ csrf, error, values = {}, conflict }) {
+export function uploadPage({ csrf, error, values = {}, conflict, searchEnabled }) {
   return dashShell(
     '/dashboard/artworks',
     html`
@@ -116,6 +120,10 @@ ${conflict ? html`<p class="small">Existing registration: <a href="/a/${conflict
         <option value="public">Public: shown in gallery and on your profile</option>
         <option value="unlisted" ${values.visibility === 'unlisted' ? 'selected' : ''}>Unlisted: registered and monitored, only visible by link</option>
       </select></label>
+    ${searchEnabled
+      ? html`<label class="check"><input type="checkbox" name="web_search" value="1" ${values.webSearch === false ? '' : 'checked'}>
+          <span>Search the whole web for copies every week. A downscaled copy of the image is sent to our search provider for this; it is not published.</span></label>`
+      : ''}
     <button class="btn">Register and protect</button>
   </form>
   <div class="aside">
@@ -133,7 +141,7 @@ ${conflict ? html`<p class="small">Existing registration: <a href="/a/${conflict
   );
 }
 
-export function artworkEdit({ csrf, a, src, matches }) {
+export function artworkEdit({ csrf, a, src, matches, search }) {
   return dashShell(
     '/dashboard/artworks',
     html`
@@ -143,7 +151,7 @@ ${pageHead(a.title, html`Registered ${fmtDate(a.created_at)} · <a href="/a/${a.
     <img class="edit-img" src="${src}" alt="${a.title}">
     <h3>Matches for this artwork</h3>
     ${matches.length
-      ? html`<ul class="plain">${matches.map((m) => html`<li><a href="/dashboard/matches/${m.id}">${hostOf(m.page_url)}</a> ${statusBadge(m.status)}</li>`)}</ul>`
+      ? html`<ul class="plain">${matches.map((m) => html`<li><a href="/dashboard/matches/${m.id}">${hostOf(m.page_url)}</a> <span>${sourceBadge(m)} ${statusBadge(m.status)}</span></li>`)}</ul>`
       : html`<p class="muted small">None found yet.</p>`}
   </div>
   <div>
@@ -161,8 +169,22 @@ ${pageHead(a.title, html`Registered ${fmtDate(a.created_at)} · <a href="/a/${a.
           <option value="public">Public</option>
           <option value="unlisted" ${a.visibility === 'unlisted' ? 'selected' : ''}>Unlisted</option>
         </select></label>
+      ${search.enabled
+        ? html`<label class="check"><input type="checkbox" name="web_search" value="1" ${a.web_search ? 'checked' : ''}>
+            <span>Search the whole web for copies every week (a downscaled copy is sent to our search provider)</span></label>`
+        : ''}
       <button class="btn">Save</button>
     </form>
+    <section class="card-form websearch">
+      <h3>Web search</h3>
+      ${search.enabled
+        ? html`<p class="small">${a.last_searched_at ? html`Last searched ${fmtDate(a.last_searched_at)}: ${a.last_search_status}` : 'Not searched yet.'}</p>
+          <form method="post" action="/dashboard/artworks/${a.id}/search" class="inline">${csrfField(csrf)}
+            <button class="btn btn-small btn-ghost">Search the web now</button></form>
+          <p class="small muted">Finds pages anywhere on the web that show this artwork. Every result is checked against your
+          registration before it is listed. At most once a day per artwork.</p>`
+        : html`<p class="small muted">Not available on this server yet.</p>`}
+    </section>
     <form method="post" action="/dashboard/artworks/${a.id}/delete" class="form danger-zone" data-confirm="Delete this artwork, its certificate and all matches permanently?">
       ${csrfField(csrf)}
       <h3>Delete artwork</h3>
@@ -249,7 +271,11 @@ export function matchDetail({ csrf, m, a, src, platform, noticeType, notice, use
   return dashShell(
     '/dashboard/matches',
     html`
-${pageHead('Review match', html`Found ${fmtDate(m.found_at)} · similarity ${m.distance}/64 (0 = identical)`)}
+${pageHead('Review match', html`Found ${fmtDate(m.found_at)}${m.source === 'search' ? ' by web search' : ''} · similarity ${similarity(m)}${m.verified === 0 ? '' : ' (0 = identical)'}`)}
+${m.verified === 0
+  ? html`<div class="flash flash-err">Unverified: the search provider reported this as an exact copy, but the image could not be downloaded to
+      confirm it. Open the image and compare it yourself before sending a notice.</div>`
+  : ''}
 <div class="compare">
   <div>
     <h3>Your artwork</h3>
@@ -263,7 +289,7 @@ ${pageHead('Review match', html`Found ${fmtDate(m.found_at)} · similarity ${m.d
       <a class="btn btn-ghost" href="${m.image_url}" rel="noopener noreferrer nofollow" target="_blank">Open found image ↗</a>
       <a class="btn btn-ghost" href="${m.page_url}" rel="noopener noreferrer nofollow" target="_blank">Open listing page ↗</a>
     </div>
-    <p class="small muted">Evidence SHA-256 of the image as downloaded: <code class="hash">${m.evidence_sha256}</code></p>
+    ${m.evidence_sha256 ? html`<p class="small muted">Evidence SHA-256 of the image as downloaded: <code class="hash">${m.evidence_sha256}</code></p>` : ''}
   </div>
 </div>
 

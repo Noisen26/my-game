@@ -108,7 +108,7 @@ export function createMonitor({ db, cfg, artworks, mailer, log = console }) {
     await mailer.send({
       to: user.email,
       subject: `${cfg.siteName}: ${created.length} possible cop${created.length === 1 ? 'y' : 'ies'} of your work found`,
-      text: `Hi ${user.display_name},\n\nOur monitor found images that closely match your registered artworks:\n\n${lines.join('\n')}\n\nReview them and generate takedown notices here:\n${cfg.baseUrl}/dashboard/matches\n\n- ${cfg.siteName}`,
+      text: `Hi ${user.display_name},\n\nWe found images that closely match your registered artworks:\n\n${lines.join('\n')}\n\nReview them and generate takedown notices here:\n${cfg.baseUrl}/dashboard/matches\n\n- ${cfg.siteName}`,
     });
   }
 
@@ -147,8 +147,10 @@ export function createMonitor({ db, cfg, artworks, mailer, log = console }) {
     );
     for (const w of due) await scanWatch(w);
     await stampPending();
+    for (const job of jobs) await job();
   }
 
+  const jobs = [];
   let timer = null;
   let running = false;
   return {
@@ -158,6 +160,8 @@ export function createMonitor({ db, cfg, artworks, mailer, log = console }) {
     recordMatches,
     stampPending,
     runDue,
+    /** Extra work to run on each scheduler tick (e.g. web search). */
+    addJob: (fn) => jobs.push(fn),
     start(intervalMs = 15 * 60 * 1000) {
       const tick = async () => {
         if (running) return;

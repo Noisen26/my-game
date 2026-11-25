@@ -112,6 +112,13 @@ const MIGRATIONS = [
     note TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL
   );`,
+  // 3: reverse image search
+  `ALTER TABLE artworks ADD COLUMN web_search INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE artworks ADD COLUMN last_searched_at TEXT;
+  ALTER TABLE artworks ADD COLUMN last_search_status TEXT NOT NULL DEFAULT '';
+  ALTER TABLE matches ADD COLUMN source TEXT NOT NULL DEFAULT 'monitor';
+  ALTER TABLE matches ADD COLUMN verified INTEGER NOT NULL DEFAULT 1;
+  CREATE TABLE search_usage (month TEXT PRIMARY KEY, count INTEGER NOT NULL DEFAULT 0);`,
 ];
 
 export function openDb(dataDir) {
