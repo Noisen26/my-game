@@ -498,10 +498,13 @@ def rita_karta(c, w, h):
     fonster(184, 278, False)
     fonster(223, 402, False)
     fonster(196, 431)
-    # personalentré (dörr) på södra sidan
-    a, b = T(412, 337)
+    # dörrar: personalentré (söder), huvudbyggnadens ytterdörr (norr), köksdörr (öster)
     c.setFillColor(BLAK)
-    c.rect(a, b - 1.5, 7 * sk, 3, stroke=0, fill=1)
+    for (dx, dy) in ((412, 337), (300, 251)):
+        a, b = T(dx, dy)
+        c.rect(a, b - 1.5, 7 * sk, 3, stroke=0, fill=1)
+    a, b = T(361, 286)
+    c.rect(a - 1.5, b - 7, 3, 7, stroke=0, fill=1)
     # teckenförklaring
     lx, ly = T(40, 470)
     c.setFillColor(colors.HexColor("#9AA7AB"))
@@ -510,7 +513,7 @@ def rita_karta(c, w, h):
     c.rect(lx, ly - 10, 9, 3, stroke=0, fill=1)
     c.setFont("Plex", 6.5)
     c.drawString(lx + 13, ly - 0.5, "fönster")
-    c.drawString(lx + 13, ly - 10.5, "dörr (endast personalhuset)")
+    c.drawString(lx + 13, ly - 10.5, "dörr")
 
     # Nordpil
     nx, ny = T(560, 60)
@@ -954,7 +957,7 @@ def dok_las_forst(ut):
             ["B07", "Förhör: Maria Lindqvist", "B18", "Brev om livförsäkring"],
             ["B08", "Förhör: Lukas Lindqvist", "B19", "Analys av beslagen, 2026"],
             ["B09", "Förhör: Jonas Ek", "B20", "Leverantörsreskontra, kök"],
-            ["B10", "Förhör: Sofia Berg", "B21", "Bankfil, löneutbetalning"],
+            ["B10", "Förhör: Sofia Berg", "B21", "Lönefil och bankuppgifter"],
             ["B11", "Förhör: Anders Holm", "", ""],
         ], [14 * mm, 71 * mm, 14 * mm, 71 * mm], zebra=False),
         PageBreak(),
@@ -1105,7 +1108,7 @@ def dok_b06(ut):
         P("GRÅSKÄRS PENSIONAT HB · UR PÄRMEN ”PERSONAL”", "etikett"),
         P("Personalregister 2019", "h1"),
         tabell(["Anst.nr", "Namn", "Befattning", "Anställd", "Arbetskläder", "Anhörig"], [
-            ["0007", "Jonas Ek", "Kökschef", "2013-04-01", "Kockrock XL, skyddsskor 46", "Linda Ek (syster)"],
+            ["0007", "Jonas Ek", "Kökschef", "2013-04-01", "Kockrock XL, skyddsskor 46", "L. Sjöberg, Rimbo"],
             ["0012", "Aisha Haddad", "Servering, städ", "2019-04-15", "Kockrock S, skyddsskor 37", "Samir Haddad (bror)"],
             ["0013", "Elin Svärd", "Kök, säsong", "2019-06-03 – 08-25", "Kockrock M, skyddsskor 39", "–"],
             ["0014", "Oskar Nyberg", "Servering, säsong", "2019-06-10 – 08-18", "Förkläde, skor 44", "–"],
@@ -1155,7 +1158,7 @@ def dok_b07(ut):
         ("F", "Hur fungerar inköpen?"),
         ("S", "Köket beställer och godkänner sina egna inköp, så har det alltid varit. Henrik betalade det som var godkänt. Han brydde sig mer om tak och bryggor än om fisk."),
         ("F", "Hade Henrik några rutiner på kvällarna?"),
-        ("S", "Han gick till fyren vid midnatt och släckte utebelysningen. Det har vi lovat fyrföreningen. Nyckeln hade han alltid i fickan, han lät ingen annan gå dit. Om det regnade tog han den gula regnrocken. Och ficklampan, den stora gula. Han var faktiskt mörkrädd."),
+        ("S", "Han gick till fyren vid midnatt och släckte utebelysningen. Det har vi lovat fyrföreningen. Strömbrytaren sitter innanför fyrens dörr, och nyckeln hade han alltid i fickan. Han lät ingen annan gå dit. Om det regnade tog han den gula regnrocken. Och ficklampan, den stora gula. Han var faktiskt mörkrädd."),
         ("F", "Hade Henrik någon konflikt med någon?"),
         ("S", "Med Anders, om vindkraften. Och med Lukas, som vill att vi säljer. Han har skulder. Och sedan har vi ju Gunnarssons."),
         ("F", "Gästerna i rum 1?"),
@@ -1169,7 +1172,7 @@ def dok_b07(ut):
     story += samtal_huvud("Maria Lindqvist", "Änka", "2026-09-30 kl. 10.00", "Hennes lägenhet, Norrtälje", "165 cm")
     story += forhor([
         ("F", "Varför skickade du akten till oss nu, sju år senare?"),
-        ("S", "Jag hittade Henriks gamla telefon när jag flyttade i somras. Jag läste sms:en igen. Han skrev att han skulle ta det i kväll. Ta vad? Det har jag aldrig fått veta."),
+        ("S", "Jag fick tillbaka Henriks telefon av polisen 2019 och lade den i en låda utan att orka titta på den. När jag flyttade i somras hittade jag den och läste sms:en igen. Han skrev att han skulle ta det i kväll. Ta vad? Det har jag aldrig fått veta."),
         ("F", "Vad hände med pensionatet?"),
         ("S", "Jag sålde till Nordhamn Hotell 2021, samma kedja som Lukas ville sälja till. Jag orkade inte. Ni kan skriva att änkan sålde till den som sonen ville. Det har folk på ön redan sagt."),
         ("F", "Och livförsäkringen?"),
@@ -1219,6 +1222,10 @@ def dok_b08(ut):
         ("S", "Vi bråkade i köket. Han frågade rakt ut om jag hade tagit pengar ur kassan. Han sa att det fattades nästan en halv miljon sedan nyår. Jag blev så arg att jag gick ner till bryggan och satt där i två timmar och väntade på båten."),
         ("F", "Var det någon som hörde bråket?"),
         ("S", "Jonas kom in mitt i. Han vände i dörren."),
+        ("F", "Hade du något med pensionatets ekonomi att göra?"),
+        ("S", "Jag skötte betalningarna i internetbanken från januari till april 2019, när pappa hade ryggskott. Jag betalade det som låg i attestpärmen. Det var därför han frågade mig först. Jag förstår honom."),
+        ("F", "Kommer du ihåg några särskilda leverantörer?"),
+        ("S", "Nej. Grossisten, bageriet, fisk. Det var en hög varje fredag."),
         ("F", "Vilka var du med på fredagen?"),
         ("S", "Ali Rahimi och Max Lindgren. Vi satt på Bar Kajen till efter halv ett. Sedan tog jag taxi hem. Ni kan prata med dem."),
         ("F", "Hade du kontakt med någon från pensionatet efter begravningen?"),
@@ -1291,7 +1298,7 @@ def dok_b10(ut):
         ("F", "Berätta om resten av kvällen."),
         ("S", "Jag satt i salongen och läste. Henrik satt på kontoret bredvid med dörren på glänt. Någon gång vid kvart i elva pratade han kort i telefon. Ungefär tio i elva kom han ut med en tjock pärm under armen och den stora ficklampan i handen. Han sa: ”Jag ska bara ut en sväng. Det finns kaffe i termosen.” Strax efter kvart över elva gick jag till mitt rum."),
         ("F", "Såg du något mer under kvällen?"),
-        ("S", "Vid tjugo i tolv stod jag vid fönstret och tittade på regnet. Lyktan vid grinden var tänd. En person i en gul regnrock med luvan uppe kom runt hörnet på huvudbyggnaden och gick ut genom grinden mot fyren. Jag tänkte att det var Henrik."),
+        ("S", "Vid tjugo i tolv stod jag vid fönstret och tittade på regnet. Lyktan vid grinden var tänd. En person i en gul regnrock med luvan uppe kom gående längs huvudbyggnadens framsida och gick ut genom grinden mot fyren. Jag tänkte att det var Henrik."),
         ("F", "Såg du ansiktet?"),
         ("S", "Nej. Personen gick fort med händerna i fickorna. När han gick under rosenbågen skakade rosorna och det stänkte vatten. Jag minns det för att lyktan lyste i dropparna."),
         ("F", "Hade personen ficklampa?"),
@@ -1309,7 +1316,9 @@ def dok_b10(ut):
         ("F", "Tänk tillbaka på personen i regnrocken. Finns det något mer?"),
         ("S", "Rocken såg kort ut. Den slutade ovanför knäna. Jag har tänkt på det i efterhand, för på Henrik brukade den nästan släpa i marken. Jag skämtade om det på torsdagen."),
         ("F", "Varifrån kom personen?"),
-        ("S", "Från huvudbyggnadens östra hörn, inte från ytterdörren. Det är jag ganska säker på."),
+        ("S", "Längs framsidan, från det östra hållet. Inte ut genom ytterdörren, för då hade ljuset från hallen fallit ut på gruset, och det gjorde det inte. Det är jag ganska säker på."),
+        ("F", "Hur var vädret just då?"),
+        ("S", "Det öste ner, men det var nästan vindstilla en stund. Regnet föll rakt. Därför la jag märke till rosorna."),
         ("A", "Samtalet avslutat kl. 09.25."),
     ])
     return bygg(ut / "B10_Forhor_Sofia_Berg.pdf", "B10", "Förhör Sofia Berg", story)
@@ -1417,7 +1426,7 @@ def dok_b13(ut):
         ("F", "Så du förlorade pengar på att han dog?"),
         ("S", "Ja. Det har ingen frågat förut."),
         ("F", "Hur mådde ditt knä den helgen?"),
-        ("S", "Uselt. Jag kunde inte gå på toaletten på natten utan Inger. Jag kom aldrig längre än till salongen på hela vistelsen. Fråga kocken, han fick hjälpa mig upp för trappan till matsalen."),
+        ("S", "Uselt. Jag kunde inte gå på toaletten på natten utan Inger. Jag tog mig mellan rummet, matsalen och salongen, längre än så kom jag aldrig. Fråga kocken, han fick hjälpa mig uppför trappan vid entrén när vi kom."),
         ("A", "Samtalet avslutat kl. 11.30."),
     ])
     story += samtal_huvud("Inger Gunnarsson", "Hustru till Bengt Gunnarsson. Vittne", "2026-10-15 kl. 11.35",
@@ -1601,7 +1610,7 @@ def dok_b18(ut):
         luft(3),
         P("<b>Bekräftelse: ändrat försäkringsbelopp, livförsäkring nr 44-208815</b>", "serif"),
         P("Hej Henrik,", "serif"),
-        P("Vi bekräftar att försäkringsbeloppet för din livförsäkring höjs från 800 000 kr till 3 000 000 kr från och med 2019-05-01. Höjningen görs på begäran av Roslagsbanken som säkerhet för lånet till takrenoveringen (lån nr 7719-03).", "serif"),
+        P("Vi bekräftar att försäkringsbeloppet för din livförsäkring höjs från 800 000 kr till 3 000 000 kr från och med 2019-05-01. Höjningen görs på begäran av Roslagsbanken som säkerhet för lånet till takrenoveringen (lån nr 4402-118).", "serif"),
         P("Förmånstagare är oförändrat din make/maka, Maria Lindqvist.", "serif"),
         luft(4),
         P("Med vänlig hälsning<br/><font name='Hand' size='17' color='#22408A'>Lena Brandt</font><br/>Lena Brandt, rådgivare", "serif"),
@@ -1617,7 +1626,7 @@ def dok_b19(ut):
         faltrutor([
             ("Beställare", "Skuggarkivet via åklagare, 2026-10-02"),
             ("Rapportdatum", "2026-11-06"),
-            ("Material", "Beslag 1–6 från 2019, prov 19-4412 från obduktionen, färgprov från båten Tärnan (taget 2026)"),
+            ("Material", "Beslag 1–6 från 2019, prov 19-4412 från obduktionen, färgprov från båten Tärnan (taget 2026), samt en ficklampa som Gråskärs fyrförening lämnade in 2026"),
             ("Referensprov", "Henrik Lindqvist, ur obduktionsprov"),
         ]),
         luft(4),
@@ -1637,6 +1646,8 @@ def dok_b19(ut):
              "Ullfibrer, blå, förenliga med den avlidnes tröja. Inget blod."],
             ["Färgprov, Tärnan",
              "Röd kopparoxidbaserad bottenfärg. Samma sammansättning som färgen på beslag 2, 3 och 4."],
+            ["7. Ficklampa, gul, stor",
+             "Hittad 2021 av en sportdykare på ca 3 m djup nedanför strandstigen, 40 m söder om fyren. Förvarad av fyrföreningen sedan dess. Strömbrytaren i läge PÅ. Batterierna urladdade och korroderade. Gravyr: \u201dH.L. Gråskär\u201d. Inga användbara spår."],
             ["Prov 19-4412",
              "Röda partiklar: kopparoxidbaserad färg, samma sammansättning som färgprovet från Tärnan. Trä: furu, impregnerad med trätjära."],
         ], [36 * mm, bredd - 36 * mm]),
@@ -1683,13 +1694,26 @@ def dok_b21(ut):
         P("Utskrift av den fil som pensionatets lönesystem skickade till banken. Filen innehåller bara anställningsnummer, inte namn.", "brod_liten"),
         luft(3),
         tabell(["Post", "Anst.nr", "Mottagarkonto", "Belopp kr", "Status"], [
-            ["01", "0007", "8327-9, 944 518 203-6", "25 185,00", "Utförd"],
+            ["01", "0007", "8327-9, 931 207 554-2", "25 185,00", "Utförd"],
             ["02", "0012", "8214-9, 102 774 551-8", "17 940,00", "Utförd"],
         ], [14 * mm, 20 * mm, 62 * mm, 30 * mm, bredd - 126 * mm], mono=True),
         luft(3),
         P("Summa: 43 125,00 kr. Avsändarkonto: Roslagsbanken 7719-03 (pensionatets driftskonto).", "mono"),
+        luft(8),
+        P("SWEDBANK · SVAR PÅ ÅKLAGARENS BEGÄRAN OM KONTOUPPLYSNINGAR, 2026-11-03", "etikett"),
+        P("Kontouppgifter, konto 8327-9, 944 518 203-6", "h2"),
+        faltrutor([
+            ("Kontoinnehavare", "Linda Sjöberg, f. 1981"),
+            ("Folkbokförd 2019", "Rimbo"),
+            ("Kontot öppnat", "2018-11-05"),
+            ("Kontot avslutat", "2020-07-02"),
+            ("Insättningar 2019", "14 st, totalt 412 600 kr, avsändare Gråskärs Pensionat HB"),
+            ("Uttag 2019", "Kontantuttag och kortköp, bl.a. bilhandel i Norrtälje 2019-06-19, 186 000 kr"),
+        ]),
+        luft(2),
+        P("Banken lämnar inga uppgifter om fullmakter eller om vem som har använt kontots kort.", "brod_liten"),
     ]
-    return bygg(ut / "B21_Lonefil.pdf", "B21", "Lönefil", story)
+    return bygg(ut / "B21_Bankuppgifter.pdf", "B21", "Bankuppgifter", story)
 
 
 # ==========================================================================
@@ -1747,7 +1771,7 @@ def dok_ledtradar(ut):
             "Henrik ägnade sina sista kvällar åt pärmarna.",
             "Allt som brändes i båthuset var inte ved.",
             "Köket godkände sina egna inköp. Vem i köket fanns på plats hela året? Och vad betyder bolagets namn?",
-            "Pengar lämnar alltid spår till ett konto. Banken vet inte vad mottagarna heter, men pensionatet vet.",
+            "Pengarna gick inte till någons lönekonto. Vem står kökschefen nära, och var bor hon?",
         ],
     }
     for rubrik, lista in delar.items():
@@ -1773,12 +1797,12 @@ def dok_losning(ut):
         P("<b>3. Personen i regnrocken var lång.</b> Rosorna skakade när personen gick under bågen (B10), vars underkant sitter på 178 cm (B02, F0). Henrik var 169 cm (B03). På Henrik räckte rocken ner på smalbenen, men på personen slutade den ovanför knäna (B07, B10). Ryggsömmen sprack (B19). Personen hade ingen ficklampa (B10), trots att Henrik aldrig gick utan (B07)."),
         P("<b>4. Bara Jonas är möjlig.</b> Längre än 178 cm är Jonas (191), Bengt (186) och Lukas (184) (B08, B09, B13). Lukas var i Norrtälje, och inga båtar gick till ön (B08, B16). Bengt gick med två kryckor och kunde inte ens ta sig till toaletten på natten utan hjälp (B13), men personen i rocken gick fort med händerna i fickorna (B10)."),
         P("<b>5. Jonas ljuger.</b> Han säger att ingen ringde honom, men Henrik ringde ankn. 104 kl. 22.46 (B15). 104 är rum 1 i personalhuset (B06), och Aisha bor i tvåan (B12). Han säger att han såg Henrik från sitt fönster, men personalhuset har bara fönster mot öster, bort från grinden (B05). 2026 lägger han till att Henrik hade ficklampan tänd, men personen hade ingen (B09, B10). Han säger att han inte var i huvudbyggnaden, men Inger såg stora blöta fotspår från rockens krok till köksdörren strax efter tolv (B13). Han säger att han aldrig varit i båthuset på veckor, men stövlarna i hans storlek (B06) har våt färg från Tärnan (B01, B19). Han säger att han aldrig rört Henriks pärmar, men frågade Lukas efter dem efter begravningen (B08). Han har aldrig hört talas om Kobbskär, men hans morfar hade ett torp där (B07)."),
-        P("<b>6. Motivet.</b> Henrik antecknade \u201dK. F&V 14 st sedan jan, 412,6, fs? kyl? – inget, kst 30? kto??\u201d och \u201dBh 23.00 – pärmen\u201d (B14), sa till Maria att han hittat något konstigt i fakturorna (B07) och skrev att han skulle ta det i kväll (B15). Jonas hörde på onsdagen att Henrik letade efter pengar som fattades (B08). Kobbskär Fisk & Vilt fick 412 600 kr via kostnadsställe 30, köket, som attesterade sina egna inköp (B07, B20) och där Jonas tog emot alla leveranser (B12). Aisha började först i april (B06), men fakturorna går tillbaka till januari. Pengarna gick till konto 944 518 203-6 (B20), samma konto som lönen till anställningsnummer 0007 (B21), och 0007 är Jonas Ek (B06). Jonas hade dessutom behövt pengar efter skilsmässan (B07) och köpte en ny bil samma sommar (B12)."),
+        P("<b>6. Motivet.</b> Henrik antecknade \u201dK. F&V 14 st sedan jan, 412,6, fs? kyl? – inget, kst 30? kto??\u201d och \u201dBh 23.00 – pärmen\u201d (B14), sa till Maria att han hittat något konstigt i fakturorna (B07) och skrev att han skulle ta det i kväll (B15). Kobbskär Fisk & Vilt fick 412 600 kr via kostnadsställe 30, köket, som attesterade sina egna inköp (B07, B20). Lukas betalade fakturor januari–april men bara det som redan var attesterat (B08), och Aisha började först i april (B06). Den som attesterade hela året var kökschefen, och Jonas tog emot alla leveranser (B12). Pengarna gick inte till Jonas lönekonto (B21). De gick till Linda Sjöberg i Rimbo (B21), och L. Sjöberg i Rimbo är Jonas anhöriga, hans syster (B06). Kobbskär är holmen där Jonas morfar hade sitt torp (B07). Från kontot köptes en bil i juni 2019 (B21), samma sommar som Jonas skaffade ny Volvo (B12). Jonas hörde på onsdagen att Henrik letade efter pengarna (B08)."),
         CondPageBreak(70 * mm),
         P("Vilka motiv fanns?", "h2"),
         tabell(["Person", "Motiv", "Varför personen inte är skyldig"], [
             ["Maria Lindqvist", "Livförsäkringen på 3 miljoner kronor och arvet. Sålde pensionatet 2021 (B07, B18).", "I Norrtälje från 15.10 till extraturen 09.00, med sin syster (B07, B16). Höjningen krävdes av banken."],
-            ["Lukas Lindqvist", "Skulder, ett förmedlingsarvode på 250 000 kr vid en försäljning och ett hotfullt sms (B08, B15).", "Kortköp i Norrtälje 23.52 och taxi 00.41. Inga båtar till ön (B16)."],
+            ["Lukas Lindqvist", "Skulder, ett förmedlingsarvode på 250 000 kr och ett hotfullt sms. Skötte betalningarna jan–apr och anklagades av Henrik (B08, B15).", "Kortköp i Norrtälje 23.52 och taxi 00.41. Inga båtar till ön (B16)."],
             ["Anders Holm", "Vindkraften: \u201dÖver min döda kropp, eller hans\u201d (B17). Ljög om att han inte gick ut (B11).", "172 cm, rosorna hade inte rörts. Han var vid båthuset efter dådet och hörde kärran på strandstigen (B11)."],
             ["Bengt Gunnarsson", "Krogkonkursen 1998. Förlorade sitt hus (B13, B17).", "Två kryckor, kunde inte gå själv. Han förlorade dessutom pengar på att Henrik dog (B07, B13)."],
             ["<b>Jonas Ek</b>", "<b>Henrik hade upptäckt förskingringen på 412 600 kr.</b>", "<b>Skyldig.</b>"],
@@ -1793,10 +1817,10 @@ def dok_losning(ut):
             ["22.50", "Henrik går från kontoret med pärmen och ficklampan.", "B10"],
             ["ca 23.05", "Jonas kommer till båthuset. Anders ser ljus i fönstret.", "B11"],
             ["ca 23.10", "Henrik konfronterar Jonas. Jonas slår honom i bakhuvudet med den tjärade åran, som lutat mot den nymålade båten. Anders hör en duns.", "B03, B11, B19"],
-            ["23.10–23.20", "Jonas kör Henrik i skottkärran längs strandstigen till fyren och lägger honom vid trappan.", "B03, B05, B19"],
+            ["23.10–23.20", "Jonas kör Henrik i skottkärran längs strandstigen till fyren och lägger honom vid trappan. Han lyser med Henriks ficklampa och kastar den i vattnet nedanför fyren innan han vänder.", "B03, B05, B19"],
             ["23.20–23.30", "Regnet börjar. Hällen under Henrik förblir torr.", "B02, B04"],
-            ["ca 23.30", "Jonas är tillbaka i båthuset och lägger pärmen i kaminen.", "B19"],
-            ["ca 23.40", "Jonas tar Henriks regnrock från hallen och går förbi Sofias fönster mot fyren, utan ficklampa. Rocken spricker i ryggen. Han kan inte släcka utebelysningen, eftersom nyckeln ligger i Henriks ficka.", "B07, B10, B19"],
+            ["ca 23.30", "Jonas är tillbaka i båthuset med den tomma kärran och lägger pärmen i kaminen.", "B11, B19"],
+            ["ca 23.40", "Jonas tar Henriks regnrock från hallen och går förbi Sofias fönster mot fyren, utan ficklampa. Rocken spricker i ryggen. Han går bara tills han är utom synhåll och vänder. Utebelysningen kan han inte släcka: strömbrytaren sitter innanför den låsta dörren och nyckeln ligger i Henriks ficka.", "B01, B07, B10, B19"],
             ["ca 23.55", "Jonas hänger tillbaka den dyblöta rocken i hallen.", "B12"],
             ["00.00–00.15", "Jonas spolar kärran och sopar båthuset. Han går in i personalhuset, och Aisha hör dörren.", "B12, B19"],
             ["lör 06.45", "Anders ser att utebelysningen är tänd och hittar Henrik.", "B11"],
@@ -1812,9 +1836,9 @@ def dok_losning(ut):
         ("S", "Jag minns inte. Det är sju år sedan."),
         ("F", "Ditt fönster vetter mot havet. Grinden ligger på andra sidan huset."),
         ("S", "Jag kanske stod på trappan."),
-        ("F", "Konto 944 518 203-6. Det är ditt lönekonto, och det är dit Kobbskär Fisk & Vilts pengar gick."),
+        ("F", "Konto 944 518 203-6 tillhör din syster Linda. Dit gick Kobbskär Fisk & Vilts pengar. Samma sommar köptes en bil från kontot, och du skaffade en ny Volvo."),
         ("A", "Förhörspersonen tiger i 40 sekunder."),
-        ("S", "Han skulle aldrig ha märkt något om inte konsulten slutat. Jag vill prata med en advokat nu."),
+        ("S", "Linda har inget med det här att göra. Han skulle aldrig ha märkt något om inte konsulten slutat. Jag vill prata med en advokat nu."),
         ("A", "Förhöret avbrutet kl. 13.26."),
     ])
     story += [
