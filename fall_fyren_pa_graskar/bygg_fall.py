@@ -840,72 +840,64 @@ def sida_omslag(rubrik_ovan, rubrik, under, rad3=None):
     return Ritning(PAGE_W, PAGE_H, f)
 
 
-def uppdragsblad(nr, fraga, text, alternativ, kontroll):
-    ut = [
-        P(f"UPPDRAG {nr}", "uppdrag_nr"),
+def svarsblad():
+    """Det enda svarsbladet: vem är skyldig, och varför?"""
+    def alt_tabell(rubrik, alternativ):
+        rader = [[P(f"<b>{b}</b>", "cell"), P(a, "cell"), P(f"<font name='Mono-Bold'>{k}</font>", "cell")]
+                 for b, a, k in alternativ]
+        t = Table([[P("", "cell_head"), P(rubrik, "cell_head"), P("Kod", "cell_head")]] + rader,
+                  colWidths=[10 * mm, 125 * mm, 35 * mm])
+        t.setStyle(TableStyle([
+            ("LINEBELOW", (0, 0), (-1, 0), 0.9, BLAK),
+            ("LINEBELOW", (0, 1), (-1, -1), 0.3, LINJE),
+            ("TOPPADDING", (0, 0), (-1, -1), 5),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ]))
+        return t
+
+    return [
+        P("SVARSBLAD", "uppdrag_nr"),
         luft(2),
-        P(fraga, "uppdrag_fraga"),
-        P(text),
+        P("Vem dödade Henrik Lindqvist, och varför?", "uppdrag_fraga"),
+        P("Henrik dog inte av ett fall. Någon på Gråskär dödade honom och fick det att se ut som en olycka. Flera personer i akten hade skäl att vilja honom illa, men bara en av dem gjorde det. Välj en person och ett motiv. Var beredd att visa vilka bevis som stöder ditt svar."),
         luft(3),
-        P("SVARSALTERNATIV", "etikett"),
-        luft(1),
+        P("Fråga 1: Vem är skyldig?", "h2"),
+        alt_tabell("Person", VEM),
+        luft(5),
+        P("Fråga 2: Varför?", "h2"),
+        alt_tabell("Motiv", VARFOR),
+        luft(5),
+        P("Kontrollera först koden för personen i <b>Svarskontroll</b>. Är personen rätt kontrollerar du koden för motivet. När båda är rätt får du öppna <b>Lösningen</b>.", "brod_liten"),
     ]
-    rader = [[P(f"<b>{bokstav}</b>", "cell"), P(alt, "cell"), P(f"<font name='Mono-Bold'>{kod}</font>", "cell")]
-             for bokstav, alt, kod in alternativ]
-    t = Table([[P("", "cell_head"), P("Alternativ", "cell_head"), P("Kod", "cell_head")]] + rader,
-              colWidths=[10 * mm, 125 * mm, 35 * mm])
-    t.setStyle(TableStyle([
-        ("LINEBELOW", (0, 0), (-1, 0), 0.9, BLAK),
-        ("LINEBELOW", (0, 1), (-1, -1), 0.3, LINJE),
-        ("TOPPADDING", (0, 0), (-1, -1), 5),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-    ]))
-    ut += [t, luft(5), P(kontroll, "brod_liten")]
-    return ut
 
 
-# --- Uppdragsalternativ och svarskoder -------------------------------------
+# --- Svarsalternativ och svarskoder ----------------------------------------
 
-U1 = [("A", "Vid foten av fyrens yttre spiraltrappa", "417"),
-      ("B", "I båthuset", "238"),
-      ("C", "På ångbåtsbryggan", "561"),
-      ("D", "På kontoret i huvudbyggnaden", "724"),
-      ("E", "I personalhuset", "395")]
-U2 = [("A", "Henrik Lindqvist", "812"),
-      ("B", "Maria Lindqvist", "146"),
-      ("C", "Lukas Lindqvist", "673"),
-      ("D", "Jonas Ek", "509"),
-      ("E", "Aisha Haddad", "287"),
-      ("F", "Sofia Berg", "934"),
-      ("G", "Anders Holm", "358")]
-U3 = [("A", "Arvet och livförsäkringen", "461"),
-      ("B", "Striden om vindkraften på norra udden", "725"),
-      ("C", "Henrik hade upptäckt att pengar förts ut ur pensionatet med falska fakturor", "183"),
-      ("D", "Henrik vägrade sälja pensionatet", "642"),
-      ("E", "Svartsjuka", "397")]
+VEM = [("A", "Maria Lindqvist, hustru", "146"),
+       ("B", "Lukas Lindqvist, son", "673"),
+       ("C", "Jonas Ek, kökschef", "509"),
+       ("D", "Aisha Haddad, servering och städ", "287"),
+       ("E", "Sofia Berg, gäst", "934"),
+       ("F", "Anders Holm, hamnfogde", "358")]
+VARFOR = [("1", "Livförsäkringen på 3 miljoner kronor", "461"),
+          ("2", "Henrik vägrade sälja pensionatet, trots sonens skulder", "642"),
+          ("3", "Striden om vindkraften på norra udden", "725"),
+          ("4", "Henrik hade upptäckt att pengar förts ut ur pensionatet med falska fakturor", "183")]
 
 SVAR = {
-    # Uppdrag 1
-    "417": ("1", False, "Det var där Henrik hittades, men dog han där? Jämför fotoprotokollet (B01, B02) med väderdata (B04). Läs också vad rättsläkaren hittade i såret (B03)."),
-    "238": ("1", True, "Rätt. Henrik dog i båthuset. Berghällen under kroppen var torr, fast regnet började kl. 23.25. Kroppen låg alltså vid fyren före 23.25, men Henrik ska ha setts vid liv 23.40. I såret fanns tjärat furuträ och röd båtbottenfärg. Inget av det finns på fyrens vitmålade järntrappa, men båten Tärnan i båthuset bottenmålades dagen innan. Anders Holm såg ljus i båthuset kl. 23.05, och Henrik sa till Sofia Berg att han skulle dit. Öppna KUVERT A."),
-    "561": ("1", False, "Ingenting i akten placerar Henrik på bryggan den kvällen. Vad hittades i såret, och var på ön finns de materialen?"),
-    "724": ("1", False, "Henrik lämnade kontoret 22.50 enligt Sofia Berg (B10). Vart sa han att han skulle gå?"),
-    "395": ("1", False, "Personalhuset är viktigt i fallet, men inte för den här frågan. Vad såg Anders Holm från sitt kök vid 23-tiden (B11)?"),
-    # Uppdrag 2
-    "812": ("2", False, "Omöjligt. Henrik låg redan vid fyren innan regnet började 23.25. Det visade du i uppdrag 1."),
-    "146": ("2", False, "Maria lämnade ön med färjan 15.10 och kom tillbaka först på lördagsmorgonen (B15)."),
-    "673": ("2", False, "Lukas längd stämmer, men han var inte på ön. Kontrollera färjeloggen, sjötaxins körjournal och kortköpet i Norrtälje kl. 23.52 (B15)."),
-    "509": ("2", True, "Rätt. Personen i regnrocken böjde på huvudet under rosenbågen, som har en fri höjd på 1,78 m. Av dem som var på ön är bara Jonas Ek längre än så (1,91 m). Han säger att han såg Henrik från sitt fönster, men personalhusets fönster vetter mot havet i öster, bort från grinden. Henrik ringde anknytning 104, Jonas rum, kl. 22.46, fast Jonas säger att ingen ringde. Stövlarna med färsk bottenfärg är storlek 46, Jonas storlek. Öppna KUVERT B."),
-    "287": ("2", False, "Aisha är 1,62 m. Hon hade inte behövt böja sig under rosenbågen."),
-    "934": ("2", False, "Sofia är vittnet. Hon såg personen genom fönstret i rum 4, och hon är 1,70 m."),
-    "358": ("2", False, "Anders är 1,72 m och hade inte behövt böja sig under rosenbågen. Stövlarna med bottenfärg är storlek 46, och Anders har 43."),
-    # Uppdrag 3
-    "461": ("3", False, "Maria tjänar på dödsfallet, men hon var inte på ön, och livförsäkringen höjdes på bankens krav. Vad tänkte Henrik ta upp den kvällen?"),
-    "725": ("3", False, "Vindkraftsstriden är verklig, men den förklarar inte varför en pärm med fakturor brändes i båthusets kamin."),
-    "183": ("3", True, "Rätt. Henrik hade upptäckt att 412 600 kr betalats till Kobbskär Fisk & Vilt AB för leveranser som aldrig kom. Fakturorna attesterades av Jonas Ek, och pengarna gick till samma konto som hans lön. Fallet är löst. Öppna KUVERT C."),
-    "642": ("3", False, "Att Henrik vägrade sälja gav Lukas ett motiv, men inte Jonas. Lukas var dessutom på fastlandet."),
-    "397": ("3", False, "Ingenting i akten pekar mot ett triangeldrama. Följ pengarna."),
+    # Vem
+    "146": ("Vem", "Fel. Maria tjänade på dödsfallet, men hon lämnade ön med färjan 15.10 och kom tillbaka först med extraturen 09.00 på lördagen (B15). Det gick inga andra båtar till ön den natten."),
+    "673": ("Vem", "Fel. Lukas hade motiv, och han är lång nog för att ha fått böja sig under rosenbågen. Men han betalade på Bar Kajen i Norrtälje kl. 23.52 och tog taxi hem 00.41. Inga färjor eller sjötaxi gick till ön (B15)."),
+    "509": ("Vem", "Rätt person. Kontrollera nu koden för motivet."),
+    "287": ("Vem", "Fel. Aisha är 1,62 m och hade inte behövt böja sig under rosenbågen (B05, B06, B10). Hon har heller inget motiv i akten."),
+    "934": ("Vem", "Fel. Sofia är vittnet som såg personen i regnrocken från rum 4. Hon bodde under falskt namn för sitt arbete, men har inget motiv."),
+    "358": ("Vem", "Fel. Anders hade motiv och var på ön, men han är 1,72 m och hade inte behövt böja sig under rosenbågen. Stövlarna med våt bottenfärg är storlek 46, och Anders har 43 (B06, B18)."),
+    # Varför
+    "461": ("Varför", "Fel motiv. Livförsäkringen var Marias motiv, och höjningen gjordes på bankens krav (B17). Varför skulle den skyldige bränna en pärm med fakturor?"),
+    "642": ("Varför", "Fel motiv. Att Henrik vägrade sälja gav Lukas ett motiv, inte den skyldige. Vad bar Henrik med sig till båthuset (B10, B13)?"),
+    "725": ("Varför", "Fel motiv. Vindkraftsstriden var Anders motiv. Den förklarar inte varför en pärm med fakturor brändes i båthusets kamin (B18)."),
+    "183": ("Varför", "Rätt. Henrik hade upptäckt att 412 600 kr betalats till Kobbskär Fisk & Vilt AB för varor som aldrig levererades. Jonas Ek attesterade fakturorna, och pengarna gick till samma konto som hans lön (B07, B13, B19, B20). Fallet är löst. Öppna Lösningen."),
 }
 
 
@@ -929,36 +921,33 @@ def dok_las_forst(ut):
         luft(5),
         P("Natten mellan den 11 och 12 oktober 2019 dog pensionatsvärden Henrik Lindqvist, 58 år, på ön Gråskär i Roslagens skärgård. Han hittades på lördagsmorgonen vid foten av fyrens yttre spiraltrappa. Polisen bedömde att han fallit i trappan i mörkret, och förundersökningen lades ned tre veckor senare."),
         P("I september skickade Henriks änka, Maria Lindqvist, oss en kopia av akten. Hon har aldrig trott på olycksteorin. Efter en första genomläsning tror inte jag heller på den. En del saker i akten stämmer inte med varandra, och ingen tog tag i dem 2019."),
-        P("Beslagen från 2019 ligger kvar i polisens förråd. Vi kan få dem analyserade, men bara om vi kan visa varför. Därför vill jag att du går igenom akten och svarar på tre frågor, en i taget."),
+        P("Vi har fått beslagen från 2019 analyserade och har tagit fram pensionatets bokföring. Allt ligger i akten. Nu behöver jag att du svarar på två frågor: vem dödade Henrik, och varför?"),
         P("Lycka till.<br/><font name='Hand' size='18' color='#22408A'>Kerstin</font>"),
         luft(4),
         P("Så spelar du", "h2"),
-        P("1.&nbsp;&nbsp;Läs grundakten, bevis <b>B01–B17</b>. Allt du behöver för det första uppdraget finns där. Anteckna gärna, och skriv ut kartan (B05) så att du har den framför dig."),
-        P("2.&nbsp;&nbsp;När du tror att du har svaret på ett uppdrag letar du upp alternativets kod och läser vad som står vid koden i <b>Svarskontroll</b>. Läs bara raden för din kod."),
-        P("3.&nbsp;&nbsp;Är svaret rätt får du öppna nästa kuvert. <b>Kuvert A</b> innehåller ny bevisning och uppdrag 2. <b>Kuvert B</b> innehåller ny bevisning och uppdrag 3. <b>Kuvert C</b> innehåller lösningen."),
-        P("4.&nbsp;&nbsp;Fastnar du finns det tre ledtrådar per uppdrag i slutet av Svarskontroll. Ta en i taget."),
+        P("1.&nbsp;&nbsp;Läs akten, bevis <b>B01–B20</b>. Anteckna gärna, och skriv ut kartan (B05) så att du har den framför dig."),
+        P("2.&nbsp;&nbsp;Välj en person och ett motiv på <b>svarsbladet</b> på nästa sida."),
+        P("3.&nbsp;&nbsp;Leta upp koden för personen i <b>Svarskontroll</b> och läs bara den raden. Är personen rätt kontrollerar du motivet på samma sätt."),
+        P("4.&nbsp;&nbsp;När båda svaren är rätt öppnar du <b>Lösningen</b>. Fastnar du finns det ledtrådar i slutet av Svarskontroll. Ta en i taget."),
         luft(3),
-        P("Innehåll i grundakten", "h2"),
+        P("Innehåll i akten", "h2"),
         tabell(["Bevis", "Dokument", "Bevis", "Dokument"], [
-            ["B01", "Polisrapport och beslag 2019", "B10", "Förhör: Sofia Berg"],
-            ["B02", "Situationsskiss vid fyren", "B11", "Förhör: Anders Holm"],
-            ["B03", "Obduktionsprotokoll", "B12", "Förhör: Aisha Haddad"],
-            ["B04", "Väderobservationer 11–12 okt", "B13", "Henriks anteckningsbok"],
-            ["B05", "Karta över Gråskär", "B14", "Henriks telefon: samtal och sms"],
-            ["B06", "Personuppgifter", "B15", "Färjelogg, sjötaxi, kortköp"],
-            ["B07", "Förhör: Maria Lindqvist", "B16", "Tidningsklipp, Roslagsposten"],
-            ["B08", "Förhör: Lukas Lindqvist", "B17", "Brev om livförsäkring"],
-            ["B09", "Förhör: Jonas Ek", "", ""],
+            ["B01", "Polisrapport och beslag 2019", "B11", "Förhör: Anders Holm"],
+            ["B02", "Situationsskiss vid fyren", "B12", "Förhör: Aisha Haddad"],
+            ["B03", "Obduktionsprotokoll", "B13", "Henriks anteckningsbok"],
+            ["B04", "Väderobservationer 11–12 okt", "B14", "Henriks telefon: samtal och sms"],
+            ["B05", "Karta över Gråskär", "B15", "Färjelogg, sjötaxi, kortköp"],
+            ["B06", "Personuppgifter", "B16", "Tidningsklipp, Roslagsposten"],
+            ["B07", "Förhör: Maria Lindqvist", "B17", "Brev om livförsäkring"],
+            ["B08", "Förhör: Lukas Lindqvist", "B18", "Analys av beslagen, 2026"],
+            ["B09", "Förhör: Jonas Ek", "B19", "Leverantörsfakturor"],
+            ["B10", "Förhör: Sofia Berg", "B20", "Lönespecifikation"],
         ], [14 * mm, 71 * mm, 14 * mm, 71 * mm], zebra=False),
         PageBreak(),
     ]
-    story += uppdragsblad(
-        1, "Var dog Henrik Lindqvist?",
-        "Henrik hittades vid fyren. Polisen utgick från att han också dog där. Om det är fel måste vi kunna visa var han faktiskt fick sin dödliga skada. Välj den plats som akten pekar på, och var beredd att förklara varför.",
-        U1,
-        "Kontrollera ditt svar i <b>Svarskontroll</b> under koden för det alternativ du valt.",
-    )
+    story += svarsblad()
     return bygg(ut / "00_Las_forst.pdf", None, "Läs först", story, omslag=True)
+
 
 
 def dok_b01(ut):
@@ -1428,25 +1417,18 @@ def dok_b17(ut):
     return bygg(ut / "B17_Forsakringsbrev.pdf", "B17", "Försäkringsbrev", story)
 
 
-# --- Kuvert A --------------------------------------------------------------
+# --- B18–B20 ---------------------------------------------------------------
 
-def kuvert_omslag(bokstav, villkor, innehall):
-    return sida_omslag(f"KUVERT {bokstav}", f"KUVERT {bokstav}", villkor, innehall)
-
-
-def dok_kuvert_a(ut):
+def dok_b18(ut):
     bredd = PAGE_W - 2 * MARG
-    story = [kuvert_omslag("A", "Öppnas först när du har löst uppdrag 1.",
-                           "Innehåll: B18 Analysrapport 2026 · Uppdrag 2"),
-             NextPageTemplate("akt"), PageBreak()]
-    story += [
+    story = [
         P("FORENSISKA LABORATORIET · ANALYS AV BESLAG FRÅN 2019", "etikett"),
         P("Analysrapport, ärende 5000-K1047-19", "h1"),
         faltrutor([
-            ("Beställare", "Skuggarkivet via åklagare, 2026-11-14"),
-            ("Rapportdatum", "2026-11-20"),
+            ("Beställare", "Skuggarkivet via åklagare, 2026-10-02"),
+            ("Rapportdatum", "2026-11-06"),
             ("Material", "Beslag 1–5 från 2019 samt vävnadsprov från obduktionen"),
-            ("Referensprover", "Lämnade 2026: Anders Holm, Lukas Lindqvist. Henrik Lindqvist ur obduktionsprov."),
+            ("Referensprov", "Henrik Lindqvist, ur obduktionsprov"),
         ]),
         luft(4),
         P("Resultat", "h2"),
@@ -1456,7 +1438,7 @@ def dok_kuvert_a(ut):
             ["4. Skottkärra", "Blod, färg",
              "Svaga blodspår på kärlets främre kant trots spolning: DNA från Henrik Lindqvist. Röd bottenfärg på hjulet."],
             ["2. Gummistövlar, stl 46", "Färg, DNA",
-             "Röd bottenfärg på sulor och skaft, kopparoxidbaserad, samma sammansättning som på båten Tärnan. Färgen var ohärdad (våt) när stövlarna kom i kontakt med den. DNA på insidan från en man. Profilen stämmer inte med Henrik Lindqvist, Anders Holm eller Lukas Lindqvist. Övriga personer har inte lämnat prov."],
+             "Röd bottenfärg på sulor och skaft, kopparoxidbaserad, med samma sammansättning som på båten Tärnan. Färgen var ohärdad (våt) när stövlarna kom i kontakt med den. Inget användbart DNA kunde säkras."],
             ["5. Askrester", "Papper och plast",
              "Delvis förkolnat papper och en smält plastrygg från en pärm. Läsbara fragment: ”…bbskär Fisk & V…”, ”Faktura nr 10…” och ”…att betala: 38 4…”."],
             ["1. Regnrock, gul, stl M", "Skador, slitage",
@@ -1464,44 +1446,33 @@ def dok_kuvert_a(ut):
         ], [34 * mm, 34 * mm, bredd - 68 * mm]),
         luft(5),
         P("Sammanfattande bedömning", "h2"),
-        P("Den skada som beskrivs i obduktionsprotokollet stämmer med ett slag med åran. Henrik Lindqvist har legat i skottkärran efter att han skadats. Den som bar stövlarna i storlek 46 har gått i båthuset medan Tärnans bottenfärg fortfarande var våt, alltså mellan torsdag och lördag.", "brod"),
-        PageBreak(),
+        P("Skadan som beskrivs i obduktionsprotokollet stämmer med ett slag med åran. Henrik Lindqvist har legat i skottkärran efter att han skadats. Den som bar stövlarna i storlek 46 har gått i båthuset medan Tärnans bottenfärg fortfarande var våt, alltså mellan torsdag och lördag.", "brod"),
     ]
-    story += uppdragsblad(
-        2, "Vem bar den gula regnrocken kl. 23.40?",
-        "Henrik var redan död när någon i hans gula regnrock gick förbi Sofia Bergs fönster mot fyren. Personen ville att det skulle se ut som om Henrik gick sin vanliga kvällsrunda. Vem var det?",
-        U2,
-        "Kontrollera ditt svar i <b>Svarskontroll</b> under koden för det alternativ du valt.",
-    )
-    return bygg(ut / "Kuvert_A.pdf", "B18", "Kuvert A", story, papper=LAB, omslag=True)
+    return bygg(ut / "B18_Analysrapport.pdf", "B18", "Analysrapport", story, papper=LAB)
 
 
-# --- Kuvert B --------------------------------------------------------------
+FAKTUROR = [
+    ("1001", "2019-01-14", "Rökt sik och gravlax", "21 400"),
+    ("1004", "2019-02-11", "Viltkött, älg", "28 900"),
+    ("1007", "2019-03-08", "Fisk, säsong", "24 600"),
+    ("1010", "2019-03-29", "Hjortfilé", "31 200"),
+    ("1013", "2019-04-19", "Abborre och gös", "26 800"),
+    ("1016", "2019-05-10", "Viltkött, vildsvin", "29 700"),
+    ("1019", "2019-05-31", "Rökt fisk", "33 500"),
+    ("1022", "2019-06-14", "Sommarbuffé, fisk", "38 400"),
+    ("1025", "2019-06-28", "Kräftor och fisk", "36 900"),
+    ("1028", "2019-07-12", "Fisk, säsong", "32 100"),
+    ("1031", "2019-07-26", "Hummer och fisk", "34 800"),
+    ("1034", "2019-08-09", "Kräftor", "29 300"),
+    ("1037", "2019-08-30", "Viltkött", "25 600"),
+    ("1040", "2019-09-20", "Fisk, säsong", "19 400"),
+]
 
-def dok_kuvert_b(ut):
+
+def dok_b19(ut):
     bredd = PAGE_W - 2 * MARG
-    fakturor = [
-        ("1001", "2019-01-14", "Rökt sik och gravlax", "21 400"),
-        ("1004", "2019-02-11", "Viltkött, älg", "28 900"),
-        ("1007", "2019-03-08", "Fisk, säsong", "24 600"),
-        ("1010", "2019-03-29", "Hjortfilé", "31 200"),
-        ("1013", "2019-04-19", "Abborre och gös", "26 800"),
-        ("1016", "2019-05-10", "Viltkött, vildsvin", "29 700"),
-        ("1019", "2019-05-31", "Rökt fisk", "33 500"),
-        ("1022", "2019-06-14", "Sommarbuffé, fisk", "38 400"),
-        ("1025", "2019-06-28", "Kräftor och fisk", "36 900"),
-        ("1028", "2019-07-12", "Fisk, säsong", "32 100"),
-        ("1031", "2019-07-26", "Hummer och fisk", "34 800"),
-        ("1034", "2019-08-09", "Kräftor", "29 300"),
-        ("1037", "2019-08-30", "Viltkött", "25 600"),
-        ("1040", "2019-09-20", "Fisk, säsong", "19 400"),
-    ]
-    story = [kuvert_omslag("B", "Öppnas först när du har löst uppdrag 2.",
-                           "Innehåll: B19 Leverantörsfakturor · B20 Lönespecifikation · B21 Förhör 2026 · Uppdrag 3"),
-             NextPageTemplate("akt"), PageBreak()]
-    # B19
-    story += [
-        P("B19 · SAMMANSTÄLLNING FRÅN PENSIONATETS BOKFÖRING, ÅTERSKAPAD 2026", "etikett"),
+    story = [
+        P("SAMMANSTÄLLNING FRÅN PENSIONATETS BOKFÖRING, ÅTERSKAPAD 2026", "etikett"),
         P("Leverantörsfakturor: Kobbskär Fisk & Vilt AB", "h1"),
         faltrutor([
             ("Leverantör", "Kobbskär Fisk & Vilt AB"),
@@ -1513,13 +1484,17 @@ def dok_kuvert_b(ut):
         ]),
         luft(3),
         tabell(["Faktura", "Datum", "Avser", "Belopp kr", "Attest", "Följesedel"],
-               [[n, d, a, b, "JE", "saknas"] for n, d, a, b in fakturor] + [["", "", "<b>Summa</b>", "<b>412 600</b>", "", ""]],
+               [[n, d, a, b, "JE", "saknas"] for n, d, a, b in FAKTUROR] + [["", "", "<b>Summa</b>", "<b>412 600</b>", "", ""]],
                [18 * mm, 24 * mm, 52 * mm, 24 * mm, 16 * mm, bredd - 134 * mm], mono=True),
         luft(3),
         P("Bokföringsbyråns kommentar 2026: Inga motsvarande varor finns i pensionatets inleveranslistor för kylrum och frys. Faktura 1022 (38 400 kr) är den högsta. Alla fakturor är attesterade med signaturen ”JE”. Den ursprungliga pärmen med pappersfakturorna har inte hittats.", "brod_liten"),
-        PageBreak(),
-        # B20
-        P("B20 · UR PENSIONATETS LÖNEARKIV", "etikett"),
+    ]
+    return bygg(ut / "B19_Leverantorsfakturor.pdf", "B19", "Leverantörsfakturor", story)
+
+
+def dok_b20(ut):
+    story = [
+        P("UR PENSIONATETS LÖNEARKIV", "etikett"),
         P("Lönespecifikation, september 2019", "h1"),
         faltrutor([
             ("Arbetsgivare", "Gråskärs Pensionat HB"),
@@ -1531,47 +1506,45 @@ def dok_kuvert_b(ut):
             ("Nettolön", "25 185,00 kr"),
             ("Utbetalas till konto", "Swedbank 8327-9, 944 518 203-6"),
         ]),
-        luft(10),
+        luft(4),
+        P("Pensionatets lönelista för 2019 omfattar Jonas Ek och Aisha Haddad samt två säsongsanställda under juni–augusti. Lönespecifikationerna för övriga anställda finns i arkivet men har inte bifogats.", "brod_liten"),
     ]
-    # B21
-    story += forhorshuvud("Jonas Ek", "Tidigare kökschef, Gråskärs pensionat", "2026-11-21 kl. 13.00",
-                          "Polisstationen, Norrtälje", "Krinsp. Mira Sahlén, med Skuggarkivet närvarande",
-                          typ="B21 · Kompletterande förhör, misstänkt")
-    story += forhor([
-        ("F", "Du sa 2019 att ingen ringde dig den kvällen. Henrik ringde din anknytning, 104, kl. 22.46. Samtalet varade i 38 sekunder."),
-        ("S", "Jag minns inte det. Det är sju år sedan."),
-        ("F", "Du sa att du såg Henrik från ditt fönster kl. 23.40. Fönstren i ditt rum vetter mot havet. Grinden ligger på andra sidan huset."),
-        ("S", "Jag kanske stod på trappan då. Jag minns inte."),
-        ("F", "Stövlarna i storlek 46 har våt bottenfärg från Tärnan på sulorna. Du sa att du inte varit i båthuset på flera veckor."),
-        ("S", "Alla lånade stövlar där."),
-        ("F", "Kobbskär Fisk & Vilt AB. Vem är Linda Ek?"),
-        ("S", "Min syster."),
-        ("F", "Fakturorna betalades till konto 944 518 203-6. Det är ditt lönekonto."),
-        ("A", "Förhörspersonen tiger i 40 sekunder."),
-        ("S", "Jag vill prata med en advokat nu."),
-        ("A", "Förhöret avbrutet kl. 13.26."),
-    ])
-    story += [PageBreak()]
-    story += uppdragsblad(
-        3, "Varför dödades Henrik Lindqvist?",
-        "Du vet nu var Henrik dog och vem som bar hans regnrock. Det som återstår är motivet. Åklagaren behöver det för att kunna väcka åtal.",
-        U3,
-        "Kontrollera ditt svar i <b>Svarskontroll</b> under koden för det alternativ du valt.",
-    )
-    return bygg(ut / "Kuvert_B.pdf", "B19–B21", "Kuvert B", story, omslag=True)
+    return bygg(ut / "B20_Lonespecifikation.pdf", "B20", "Lönespecifikation", story)
 
 
-# --- Kuvert C --------------------------------------------------------------
+# --- Lösning ---------------------------------------------------------------
 
-def dok_kuvert_c(ut):
+def dok_losning(ut):
     bredd = PAGE_W - 2 * MARG
-    story = [kuvert_omslag("C", "Öppnas först när du har löst uppdrag 3.", "Innehåll: Lösningen"),
+    story = [sida_omslag("LÖSNINGEN", "LÖSNINGEN",
+                         "Öppnas först när du har svarat på båda frågorna.",
+                         "Innehåll: Vem och varför · Motiven · Tidslinje · Epilog"),
              NextPageTemplate("akt"), PageBreak()]
     story += [
         P("LÖSNING", "etikett"),
-        P("Vad som hände på Gråskär", "h1"),
-        P("Jonas Ek hade sedan januari 2019 fört ut 412 600 kr ur pensionatet. Hans syster Linda var ensam ledamot i Kobbskär Fisk & Vilt AB, men fakturorna betalades till Jonas eget lönekonto. Som kökschef attesterade han själv fakturorna, och Henrik betalade dem utan att granska dem. När redovisningskonsulten gick i pension tog Henrik över bokföringen, och i oktober såg han att det inte fanns en enda leverans bakom fakturorna."),
-        luft(2),
+        P("Jonas Ek dödade Henrik Lindqvist", "h1"),
+        P("Jonas Ek hade sedan januari 2019 fört ut 412 600 kr ur pensionatet. Hans syster Linda var ensam ledamot i Kobbskär Fisk & Vilt AB, men fakturorna betalades till Jonas eget lönekonto. Som kökschef attesterade han själv fakturorna, och Henrik betalade dem utan att granska dem. När redovisningskonsulten gick i pension tog Henrik över bokföringen, och i oktober såg han att det inte fanns en enda leverans bakom fakturorna. Han kallade Jonas till båthuset för att konfrontera honom."),
+        P("Så visar du att Jonas är skyldig", "h2"),
+        P("<b>Henrik dog inte vid fyren.</b> Hällen under honom var torr, fast regnet började 23.25 (B02, B04). Han låg alltså där före 23.25, trots att han ska ha setts vid liv 23.40. I såret fanns tjärat furuträ och våt bottenfärg från Tärnan i båthuset, inte vit järnfärg från trappan (B03, B18). Hälarna var skrapade av att han släpats (B03)."),
+        P("<b>Personen i regnrocken var inte Henrik.</b> Personen böjde på huvudet under rosenbågen, som har en fri höjd på 1,78 m (B05, B10). Av dem som var på ön är bara Jonas längre än så, och Lukas var i Norrtälje (B06, B15). Rockens ryggsöm sprack av en för stor bärare (B18). Personen hade ingen ficklampa, fast Henrik aldrig gick utan (B07, B10)."),
+        P("<b>Jonas ljuger.</b> Han säger att ingen ringde honom, men Henrik ringde hans rum kl. 22.46 (B09, B14). Han säger att han såg Henrik från fönstret, men hans fönster vetter mot havet (B05). Han säger att han inte varit i båthuset på flera veckor, men stövlarna i hans storlek har våt färg från båten som målades på torsdagen (B09, B18)."),
+        P("<b>Motivet.</b> Henrik skrev till Maria att något i bokföringen inte stämde (B14) och antecknade ”Vem har attesterat? Jämför kontonumren!” (B13). Jonas attesterade köksfakturorna (B07, B19), och kontot på fakturorna är hans lönekonto (B20). Pärmen brändes i båthusets kamin (B18)."),
+        CondPageBreak(60 * mm),
+        P("Vilka motiv fanns?", "h2"),
+        P("Fyra personer hade skäl att vilja Henrik illa. Två saknade motiv."),
+        tabell(["Person", "Motiv", "Varför personen inte är skyldig"], [
+            ["Maria Lindqvist", "Ärver Henrik och får 3 miljoner kronor från livförsäkringen (B17).",
+             "Livförsäkringen höjdes på bankens krav. Hon var i Norrtälje från 15.10 till extraturen 09.00 (B15)."],
+            ["Lukas Lindqvist", "Har skulder och ville sälja. Hotfullt sms kl. 21.12 (B08, B14).",
+             "Kortköp på Bar Kajen kl. 23.52 och taxi 00.41. Inga båtar gick till ön (B15)."],
+            ["Anders Holm", "Ville stoppa vindkraften. ”Över min döda kropp, eller hans” (B16).",
+             "1,72 m och skostorlek 43. Han såg ljuset i båthuset och anmälde fyndet (B06, B11)."],
+            ["<b>Jonas Ek</b>", "<b>Henrik hade upptäckt förskingringen på 412 600 kr (B13, B19, B20).</b>",
+             "<b>Skyldig.</b>"],
+            ["Sofia Berg", "Inget motiv. Bodde under falskt namn för sitt arbete som journalist (B10).", "Vittne."],
+            ["Aisha Haddad", "Inget motiv.", "1,62 m. Hörde dörren slå igen i personalhuset (B12)."],
+        ], [30 * mm, 70 * mm, bredd - 100 * mm], hl=[4]),
+        PageBreak(),
         P("Tidslinje", "h2"),
         tabell(["Tid", "Händelse", "Bevis"], [
             ["tors 10/10", "Henrik bottenmålar Tärnan med röd kopparfärg. Ingen får röra båten.", "B07, B11, B13"],
@@ -1589,19 +1562,37 @@ def dok_kuvert_c(ut):
             ["24.00", "Ingen släcker fyrens utebelysning.", "B01, B11"],
             ["lör 06.15", "Aisha hittar den dyblöta rocken i hallen.", "B12"],
             ["06.45", "Anders ser att utebelysningen är tänd och hittar Henrik.", "B11"],
-            ["11.20", "Jonas säger till polisen att han såg Henrik från fönstret och inte varit i båthuset. Båda påståendena är lögn.", "B05, B09"],
+            ["11.20", "Jonas säger till polisen att han såg Henrik från fönstret och inte har varit i båthuset. Båda påståendena är lögn.", "B05, B09"],
         ], [22 * mm, bredd - 54 * mm, 32 * mm]),
         luft(4),
-        P("Falska spår", "h2"),
-        P("<b>Maria Lindqvist</b> fick ut 3 miljoner kronor i livförsäkring, men höjningen gjordes på bankens krav och hon var i Norrtälje hela natten. <b>Lukas Lindqvist</b> skickade ett hotfullt sms och ville sälja pensionatet, men han satt på en bar i Norrtälje kl. 23.52 och det gick inga båtar till ön. <b>Anders Holm</b> hade sagt ”Över min döda kropp, eller hans” till tidningen, men han är för kort för att ha behövt böja sig under rosenbågen och har skostorlek 43. <b>Sofia Berg</b> bodde på pensionatet under falskt namn, men det berodde på hennes arbete som journalist."),
         P("Varför polisen missade det 2019", "h2"),
         P("Den torra hällen noterades men kommenterades aldrig. Fynden i såret jämfördes inte med trappan, och samtalet till anknytning 104 bedömdes vara ”inget av intresse”. Insp. Lund tog beslagen men fick aldrig analysera dem. Vittnesuppgiften om Henrik i regnrocken kl. 23.40 fick hela utredningen att utgå från att han levde när regnet började."),
-        P("Efterspel", "h2"),
-        P("Med analysrapporten och de nya förhören begärde Skuggarkivet att förundersökningen skulle återupptas. Åklagaren beslutade samma vecka att Jonas Ek ska höras som skäligen misstänkt för mord, alternativt dråp, och grov trolöshet mot huvudman."),
-        luft(6),
+        PageBreak(),
+    ]
+    story += forhorshuvud("Jonas Ek", "Tidigare kökschef, Gråskärs pensionat", "2026-11-21 kl. 13.00",
+                          "Polisstationen, Norrtälje", "Krinsp. Mira Sahlén, med Skuggarkivet närvarande",
+                          typ="Epilog · Förhör med misstänkt")
+    story += forhor([
+        ("F", "Du sa 2019 att ingen ringde dig den kvällen. Henrik ringde din anknytning, 104, kl. 22.46. Samtalet varade i 38 sekunder."),
+        ("S", "Jag minns inte det. Det är sju år sedan."),
+        ("F", "Du sa att du såg Henrik från ditt fönster kl. 23.40. Fönstren i ditt rum vetter mot havet. Grinden ligger på andra sidan huset."),
+        ("S", "Jag kanske stod på trappan då. Jag minns inte."),
+        ("F", "Stövlarna i storlek 46 har våt bottenfärg från Tärnan på sulorna. Du sa att du inte varit i båthuset på flera veckor."),
+        ("S", "Alla lånade stövlar där."),
+        ("F", "Kobbskär Fisk & Vilt AB. Vem är Linda Ek?"),
+        ("S", "Min syster."),
+        ("F", "Fakturorna betalades till konto 944 518 203-6. Det är ditt lönekonto."),
+        ("A", "Förhörspersonen tiger i 40 sekunder."),
+        ("S", "Jag vill prata med en advokat nu."),
+        ("A", "Förhöret avbrutet kl. 13.26."),
+    ])
+    story += [
+        luft(4),
+        P("Åklagaren beslutade samma vecka att Jonas Ek ska delges misstanke om mord, alternativt dråp, och grov trolöshet mot huvudman.", "brod"),
+        luft(4),
         P("Tack för att du utredde fallet. Hur många ledtrådar behövde du?", "elite"),
     ]
-    return bygg(ut / "Kuvert_C_Losning.pdf", None, "Kuvert C – Lösning", story, omslag=True)
+    return bygg(ut / "Losning.pdf", None, "Lösning", story, omslag=True)
 
 
 # --- Svarskontroll ---------------------------------------------------------
@@ -1611,14 +1602,11 @@ def dok_svarskontroll(ut):
     story = [
         P("SVARSKONTROLL", "etikett"),
         P("Kontrollera ditt svar", "h1"),
-        P("Hitta koden för det alternativ du valt på uppdragsbladet. Läs <b>bara</b> raden för den koden. Koderna står i nummerordning, så att du inte råkar se de andra svaren."),
+        P("Leta upp koden för personen du valt och läs <b>bara</b> den raden. Är personen rätt gör du likadant med koden för motivet. Koderna står i nummerordning, så att du inte råkar se de andra svaren."),
         luft(3),
     ]
-    rader = []
-    for kod in sorted(SVAR):
-        uppdrag, ratt, text = SVAR[kod]
-        rader.append([f"<b>{kod}</b>", uppdrag, text])
-    story.append(tabell(["Kod", "Uppdr.", "Svar"], rader, [16 * mm, 14 * mm, bredd - 30 * mm], zebra=True))
+    rader = [[f"<b>{kod}</b>", fraga, text] for kod, (fraga, text) in sorted(SVAR.items())]
+    story.append(tabell(["Kod", "Fråga", "Svar"], rader, [16 * mm, 16 * mm, bredd - 32 * mm]))
     story += [
         PageBreak(),
         P("LEDTRÅDAR", "etikett"),
@@ -1627,17 +1615,12 @@ def dok_svarskontroll(ut):
         luft(2),
     ]
     ledtradar = {
-        "Uppdrag 1 – Var dog Henrik?": [
-            "Enligt Jonas och Sofia var Henrik ute i regnet 23.40. När började det regna (B04), och hur såg hällen under honom ut (B01, B02)?",
-            "Vad hittade rättsläkaren i såret (B03)? Vad är fyrens trappa gjord av? Var på ön finns tjärat trä och röd bottenfärg (B07, B11, B13)?",
-            "Läs vad Henrik sa till Sofia Berg kl. 22.50 (B10), vad Anders Holm såg och hörde vid 23-tiden (B11) och den sista raden med tid i anteckningsboken (B13).",
+        "Vem är skyldig?": [
+            "Börja med var Henrik dog. Enligt Jonas och Sofia var han ute i regnet 23.40. När började det regna (B04), och hur såg hällen under honom ut (B01, B02)? Vad hittade rättsläkaren i såret (B03), och var på ön finns det materialet (B07, B11, B13)?",
+            "Om Henrik redan var död 23.40, vem gick då i hans regnrock förbi Sofias fönster? Vad lade hon märke till vid grinden (B10)? Jämför rosenbågens fria höjd (B05) med längderna i B06 och kontrollera vem som faktiskt var på ön (B15).",
+            "Granska Jonas förhör (B09). Åt vilket håll vetter fönstren i personalhuset (B05)? Vem ringde Henrik kl. 22.46 (B06, B14)? Vilken storlek har stövlarna med våt bottenfärg (B01, B18)?",
         ],
-        "Uppdrag 2 – Vem bar regnrocken?": [
-            "Henrik var redan död. Vad lade Sofia märke till när personen gick genom grinden (B10)?",
-            "Kartan (B05) anger rosenbågens fria höjd. Jämför med längderna i B06. Kontrollera sedan vem som faktiskt var på ön (B15).",
-            "Jonas säger att han såg Henrik från sitt fönster (B09). Åt vilket håll vetter fönstren i personalhuset (B05)? Vem ringde Henrik kl. 22.46 (B06, B14)? Vilken skostorlek har stövlarna (B18)?",
-        ],
-        "Uppdrag 3 – Varför?": [
+        "Varför?": [
             "Vad skrev Henrik till Maria kl. 21.40 (B14), och vad bar han med sig till båthuset (B10)?",
             "Vad brändes i båthusets kamin (B18)? Vem attesterade köksfakturorna (B07, B19)?",
             "Jämför kontonumret på fakturorna (B19) med lönespecifikationen (B20).",
@@ -1653,7 +1636,8 @@ def dok_svarskontroll(ut):
 # --------------------------------------------------------------------------
 
 GRUNDAKT = [dok_b01, dok_b02, dok_b03, dok_b04, dok_b05, dok_b06, dok_b07, dok_b08, dok_b09,
-            dok_b10, dok_b11, dok_b12, dok_b13, dok_b14, dok_b15, dok_b16, dok_b17]
+            dok_b10, dok_b11, dok_b12, dok_b13, dok_b14, dok_b15, dok_b16, dok_b17,
+            dok_b18, dok_b19, dok_b20]
 
 
 def main():
@@ -1666,11 +1650,11 @@ def main():
     registrera_typsnitt()
     S = stilar()
     ut = Path(args.ut)
-    (ut / "Grundakt").mkdir(parents=True, exist_ok=True)
+    (ut / "Akt").mkdir(parents=True, exist_ok=True)
 
     filer = [dok_las_forst(ut)]
-    filer += [f(ut / "Grundakt") for f in GRUNDAKT]
-    filer += [dok_kuvert_a(ut), dok_kuvert_b(ut), dok_kuvert_c(ut), dok_svarskontroll(ut)]
+    filer += [f(ut / "Akt") for f in GRUNDAKT]
+    filer += [dok_svarskontroll(ut), dok_losning(ut)]
 
     if not args.ingen_samlingsfil:
         try:

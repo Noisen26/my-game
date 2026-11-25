@@ -15,18 +15,20 @@ python3 bygg_fall.py             # skriver till ./utdata
 
 | Fil | Innehåll |
 |---|---|
-| `00_Las_forst.pdf` | Omslag, uppdragsbrev, regler, innehållsförteckning och uppdrag 1 |
-| `Grundakt/B01–B17` | Ett dokument per bevis |
-| `Kuvert_A.pdf` | Analysrapport 2026 (B18) och uppdrag 2. Öppnas efter uppdrag 1. |
-| `Kuvert_B.pdf` | Fakturor, lönespecifikation, nytt förhör (B19–B21) och uppdrag 3 |
-| `Kuvert_C_Losning.pdf` | Lösning med fullständig tidslinje |
-| `Svarskontroll.pdf` | Svarskoder och tre ledtrådar per uppdrag |
+| `00_Las_forst.pdf` | Omslag, uppdragsbrev, regler, innehållsförteckning och svarsblad |
+| `Akt/B01–B20` | Ett dokument per bevis |
+| `Svarskontroll.pdf` | Svarskoder och ledtrådar |
+| `Losning.pdf` | Lösning, motivöversikt, tidslinje och epilog |
 | `Fyren_pa_Graskar_alla_dokument.pdf` | Alla dokument i en fil, för utskrift |
 
-## Uppdrag och svar (spoiler)
+## Frågor och svar (spoiler)
 
-1. Var dog Henrik? **Båthuset** (kod 238)
-2. Vem bar den gula regnrocken kl. 23.40? **Jonas Ek** (kod 509)
-3. Varför? **Förskingring via falska fakturor** (kod 183)
+Spelaren svarar på två frågor:
+
+1. Vem är skyldig? **Jonas Ek** (kod 509)
+2. Varför? **Henrik hade upptäckt förskingringen via falska fakturor** (kod 183)
+
+Motiven i fallet: Maria (livförsäkringen), Lukas (skulder, ville sälja),
+Anders (vindkraften) och Jonas (förskingringen). Sofia och Aisha har inget motiv.
 
 All text finns i `bygg_fall.py`. Ändra där och bygg om.
