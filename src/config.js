@@ -44,6 +44,16 @@ export function loadConfig(overrides = {}) {
     // Repeat offenders: shops where a copy was found are re-scanned for every artist's work
     offenderRescanHours: Number(env.OFFENDER_RESCAN_HOURS) || 24,
     offendersPerTick: Number(env.OFFENDERS_PER_TICK) || 20,
+    // Billing (Stripe). Without STRIPE_SECRET_KEY the site runs without payments.
+    stripeSecretKey: env.STRIPE_SECRET_KEY || null,
+    stripeWebhookSecret: env.STRIPE_WEBHOOK_SECRET || null,
+    stripePrices: {
+      artist: { monthly: env.STRIPE_PRICE_ARTIST_MONTHLY || null, yearly: env.STRIPE_PRICE_ARTIST_YEARLY || null },
+      studio: { monthly: env.STRIPE_PRICE_STUDIO_MONTHLY || null, yearly: env.STRIPE_PRICE_STUDIO_YEARLY || null },
+    },
+    currency: env.CURRENCY || 'SEK',
+    // During a beta, every new account gets this plan for free (e.g. "artist").
+    signupPlan: env.BETA_PLAN || null,
     previewMaxPx: 1000,
     maxUploadBytes: 40 * 1024 * 1024,
     maxArtworksPerUser: Number(env.MAX_ARTWORKS_PER_USER) || 500,

@@ -16,6 +16,7 @@ import { fetch } from 'undici';
 import { safeFetch, userAgent, apiDispatcher } from './fetcher.js';
 import { fingerprint, distance, sha256, SUSPECT_CROPS, MATCH_THRESHOLD } from './imaging.js';
 import { now } from './db.js';
+import { planSql } from './plans.js';
 
 const MAX_CANDIDATES = 40;
 
@@ -216,17 +217,15 @@ export function createWebSearch({ db, cfg, artworks, monitor, provider = createP
   /** Scheduled: searches artworks that opted in and are due, within budget. */
   async function searchDue(limit = 20) {
     if (!provider) return 0;
-    const cutoff = new Date(Date.now() - cfg.searchIntervalDays * 864e5).toISOString();
     // Hot artworks (trending or just copied) are searched daily.
     const hotCutoff = new Date(Date.now() - 864e5 + 5 * 60e3).toISOString();
     const due = db.all(
       `SELECT a.id FROM artworks a JOIN users u ON u.id = a.user_id
        WHERE a.web_search = 1 AND a.hidden_at IS NULL AND u.suspended_at IS NULL
-         AND (a.last_searched_at IS NULL OR a.last_searched_at < CASE WHEN a.hot_until > ? THEN ? ELSE ? END)
+         AND (a.last_searched_at IS NULL OR a.last_searched_at < CASE WHEN a.hot_until > ? THEN ? ELSE strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-' || ${planSql('webSearchDays')} || ' days') END)
        ORDER BY (a.hot_until > ?) DESC, a.last_searched_at IS NOT NULL, a.last_searched_at LIMIT ?`,
       now(),
       hotCutoff,
-      cutoff,
       now(),
       Math.min(limit, remaining()),
     );

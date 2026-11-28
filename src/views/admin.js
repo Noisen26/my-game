@@ -1,5 +1,6 @@
 import { html, fmtDate, fmtDay } from '../html.js';
 import { csrfField, pageHead } from './layout.js';
+import { PLANS } from '../plans.js';
 
 const tabs = (path) => {
   const t = (href, label) => html`<a href="${href}" class="${path === href ? 'active' : ''}">${label}</a>`;
@@ -135,10 +136,11 @@ export function users({ rows, q, filter }) {
 </form>
 ${rows.length
   ? html`<div class="table-wrap"><table class="table">
-      <thead><tr><th>User</th><th>Joined</th><th>Artworks</th><th>Disputes</th><th>Status</th></tr></thead>
+      <thead><tr><th>User</th><th>Plan</th><th>Joined</th><th>Artworks</th><th>Disputes</th><th>Status</th></tr></thead>
       <tbody>${rows.map(
         (u) => html`<tr>
           <td><a href="/admin/users/${u.id}">${u.display_name}</a><div class="small muted">@${u.handle} · ${u.email}</div></td>
+          <td>${PLANS[u.plan]?.name ?? u.plan}${u.comp_plan ? html` <span class="small muted">(granted)</span>` : ''}</td>
           <td class="nowrap">${fmtDay(u.created_at)}</td>
           <td>${u.artworks}</td>
           <td>${u.disputes}</td>
@@ -160,6 +162,19 @@ ${u.suspended_at
   : u.is_admin
     ? html`<p class="small muted">Admins cannot be suspended from the web. Revoke with <code>node scripts/admin.js revoke</code> first.</p>`
     : actionForm(csrf, `/admin/users/${u.id}/suspend`, 'Suspend user', { danger: true, confirm: 'Suspend this user? They are signed out, their works are hidden and their monitor stops.' })}
+<section class="card-form admin-plan">
+  <h3>Plan: ${PLANS[u.plan]?.name ?? u.plan}</h3>
+  <p class="small muted">E-mail ${u.email_verified_at ? 'confirmed' : 'not confirmed'}.
+    ${u.sub_status ? html`Stripe subscription: ${PLANS[u.sub_plan]?.name ?? '?'} (${u.sub_status}${u.sub_cancel_at_period_end ? ', cancels at period end' : ''}).` : 'No Stripe subscription.'}</p>
+  <form method="post" action="/admin/users/${u.id}/plan" class="search-row">
+    ${csrfField(csrf)}
+    <select name="plan">
+      <option value="">No granted plan</option>
+      ${Object.values(PLANS).filter((p) => p.key !== 'free').map((p) => html`<option value="${p.key}" ${u.comp_plan === p.key ? 'selected' : ''}>Grant ${p.name} for free</option>`)}
+    </select>
+    <button class="btn btn-small btn-ghost">Save</button>
+  </form>
+</section>
 <h2>Artworks (${items.length})</h2>
 ${items.length
   ? html`<div class="grid">${items.map(

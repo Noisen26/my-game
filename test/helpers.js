@@ -49,8 +49,9 @@ export const mockup = async () => {
 
 /** Minimal browser-like client with a cookie jar and CSRF handling. */
 export class Client {
-  constructor(base, ua = BROWSER_UA) {
+  constructor(base, ua = BROWSER_UA, ctx = null) {
     this.base = base;
+    this.ctx = ctx;
     this.ua = ua;
     this.cookies = {};
   }
@@ -95,7 +96,15 @@ export class Client {
   async signup(handle, extra = {}) {
     const r = await this.post('/signup', { display_name: extra.name || `Artist ${handle}`, handle, email: `${handle}@example.com`, password: 'correct horse battery', terms: '1' });
     if (r.status !== 303) throw new Error(`signup failed: ${r.status} ${await r.text()}`);
+    if (this.ctx && extra.verify !== false) await this.verifyEmail(`${handle}@example.com`);
     return r;
+  }
+  /** Opens the newest confirmation link sent to an address. */
+  async verifyEmail(email) {
+    const mail = this.ctx.mailer.outbox.findLast((m) => m.to === email && /verify-email\?token=/.test(m.text));
+    if (!mail) throw new Error(`no verification mail for ${email}`);
+    const token = mail.text.match(/verify-email\?token=([\w-]+)/)[1];
+    return this.get(`/verify-email?token=${token}`);
   }
 }
 
@@ -118,6 +127,7 @@ export async function startApp(overrides = {}) {
     quiet: true,
     allowPrivateFetch: true,
     rateLimitMultiplier: 100,
+    signupPlan: 'studio', // like a beta tester; billing tests override this
     baseUrl: 'http://localhost:3999',
     otsCalendars: [`http://127.0.0.1:${calendar.address().port}`],
     ...overrides,
@@ -130,7 +140,7 @@ export async function startApp(overrides = {}) {
     base,
     dir,
     ctx: app.locals.ctx,
-    client: (ua) => new Client(base, ua),
+    client: (ua) => new Client(base, ua, app.locals.ctx),
     async stop() {
       await new Promise((r) => server.close(r));
       calendar.close();

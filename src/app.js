@@ -28,6 +28,10 @@ import { createWebSearch } from './websearch.js';
 import { createUsage, createEtsy, createEbay } from './marketplaces.js';
 import { createOffenders } from './offenders.js';
 import { createDiscovery } from './discovery.js';
+import { createBilling } from './billing.js';
+import { createEmailVerification } from './emailverify.js';
+import { PLANS, planOf, syncPlan } from './plans.js';
+import * as billView from './views/billing.js';
 
 const ah = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 const str = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
@@ -49,6 +53,8 @@ export async function createApp(overrides = {}) {
   const quietLog = cfg.quiet ? {} : console;
   const offenders = createOffenders({ db, cfg, monitor, etsy, ebay, log: quietLog });
   const discovery = createDiscovery({ db, cfg, artworks, monitor, mailer, etsy, ebay, log: quietLog });
+  const billing = createBilling({ db, cfg, mailer, log: quietLog });
+  const emailVerify = createEmailVerification({ db, cfg, mailer });
   monitor.addJob(() => offenders.scanDue());
   monitor.addJob(() => discovery.checkTrending());
   monitor.addJob(() => discovery.marketplaceDue());
@@ -81,7 +87,7 @@ export async function createApp(overrides = {}) {
   const app = express();
   app.disable('x-powered-by');
   app.set('trust proxy', cfg.trustProxy ?? 'loopback');
-  app.locals.ctx = { cfg, db, mailer, monitor, artworks, secrets, websearch, offenders, discovery, usage };
+  app.locals.ctx = { cfg, db, mailer, monitor, artworks, secrets, websearch, offenders, discovery, usage, billing, emailVerify };
 
   app.use(securityHeaders(cfg));
   app.use(optOutHeaders);
@@ -92,6 +98,8 @@ export async function createApp(overrides = {}) {
   app.get('/.well-known/tdmrep.json', (_q, r) => r.json([{ location: '/', 'tdm-reservation': 1 }]));
   app.get('/.well-known/signing-key.pem', (_q, r) => r.type('text').set('X-Key-Id', secrets.keyId).send(secrets.publicPem));
   app.get('/healthz', (_q, r) => r.json({ ok: true }));
+  // Stripe webhooks: raw body for signature verification, no CSRF (authenticated by signature).
+  app.post('/stripe/webhook', express.raw({ type: '*/*', limit: '1mb' }), ah((req, res) => billing.webhook(req, res)));
 
   app.use(blockAiBots);
   app.use('/static', express.static(join(ROOT, 'public'), { maxAge: cfg.production ? '7d' : 0 }));
@@ -228,13 +236,27 @@ export async function createApp(overrides = {}) {
     if (req.body.terms !== '1') return fail('You need to accept the terms.');
     if (db.one('SELECT 1 FROM users WHERE handle = ?', values.handle)) return fail('That profile address is taken.');
     if (db.one('SELECT 1 FROM users WHERE email = ?', values.email)) return fail('An account with that e-mail already exists. Try signing in.');
+    const comp = PLANS[cfg.signupPlan] ? cfg.signupPlan : null;
     const r = db.run(
-      'INSERT INTO users (email, password_hash, handle, display_name, created_at) VALUES (?, ?, ?, ?, ?)',
-      values.email, await hashPassword(password), values.handle, values.display_name, now(),
+      'INSERT INTO users (email, password_hash, handle, display_name, created_at, comp_plan) VALUES (?, ?, ?, ?, ?, ?)',
+      values.email, await hashPassword(password), values.handle, values.display_name, now(), comp,
     );
-    sessions.login(res, Number(r.lastInsertRowid));
+    const userId = Number(r.lastInsertRowid);
+    syncPlan(db, userId);
+    await emailVerify.send(db.one('SELECT * FROM users WHERE id = ?', userId));
+    sessions.login(res, userId);
     res.redirect(303, '/dashboard?msg=welcome');
   }));
+
+  app.get('/verify-email', (req, res) => {
+    const r = emailVerify.consume(req.query.token);
+    if (r.error) return render(req, res, { title: 'Verify e-mail', body: html`<div class="empty"><h1>Could not verify</h1><p>${r.error}</p></div>` }, 400);
+    res.redirect(303, req.user?.id === r.userId ? '/dashboard?msg=email-verified' : '/login?msg=email-verified');
+  });
+
+  app.get('/pricing', (req, res) =>
+    render(req, res, { title: 'Pricing', body: billView.pricingPage({ cfg, user: req.user, billing, csrf: req.csrf, interval: req.query.interval === 'yearly' ? 'yearly' : 'monthly' }), wide: true }),
+  );
 
   app.get('/login', (req, res) =>
     req.user ? res.redirect('/dashboard') : render(req, res, { title: 'Sign in', body: auth.loginPage({ csrf: req.csrf, next: safeNext(req.query.next) }) }),
@@ -282,6 +304,7 @@ export async function createApp(overrides = {}) {
     db.tx(() => {
       db.run('UPDATE users SET password_hash = ? WHERE id = ?', hash, row.user_id);
       db.run('DELETE FROM password_resets WHERE user_id = ?', row.user_id);
+      db.run('UPDATE users SET email_verified_at = COALESCE(email_verified_at, ?) WHERE id = ?', now(), row.user_id);
     });
     sessions.logoutEverywhere(row.user_id);
     res.redirect(303, '/login?msg=reset-done');
@@ -318,6 +341,9 @@ export async function createApp(overrides = {}) {
     const fail = (error, conflict) => dash_(req, res, 'Register artwork', dash.uploadPage({ csrf: req.csrf, error, values, conflict, searchEnabled: websearch.enabled }), 400);
     if (!req.file) return fail('Choose an image file (JPEG, PNG, WebP or TIFF).');
     if (!values.title) return fail('Give your artwork a title.');
+    const limit = planOf(req.user).artworks;
+    if (db.one('SELECT COUNT(*) n FROM artworks WHERE user_id = ?', req.user.id).n >= limit)
+      return fail(`Your ${planOf(req.user).name} plan includes ${limit} artworks. Upgrade under Billing to register more.`);
     try {
       const a = await artworks.register(req.user, req.file.buffer, values);
       monitor.stampPending().catch(() => {}); // submit timestamp in the background
@@ -347,13 +373,15 @@ export async function createApp(overrides = {}) {
     res.redirect(303, `/dashboard/artworks/${req.artwork.id}?msg=updated`);
   });
   d.post('/artworks/:id/hot', csrf, ownArtwork, (req, res) => {
-    if (req.body.on === '1') discovery.setHot(req.artwork.id, 'marked by artist');
-    else discovery.clearHot(req.artwork.id);
+    if (req.body.on === '1') {
+      if (!discovery.setHot(req.artwork.id, 'marked by artist')) return res.redirect(303, `/dashboard/artworks/${req.artwork.id}?msg=plan-required`);
+    } else discovery.clearHot(req.artwork.id);
     res.redirect(303, `/dashboard/artworks/${req.artwork.id}?msg=updated`);
   });
   d.post('/artworks/:id/market', heavyLimit, csrf, ownArtwork, ah(async (req, res) => {
     const a = req.artwork;
     if (!discovery.enabled) return res.redirect(303, `/dashboard/artworks/${a.id}?msg=market-unavailable`);
+    if (!planOf(req.user).marketplaces) return res.redirect(303, `/dashboard/artworks/${a.id}?msg=plan-required`);
     if (a.last_market_search_at && Date.now() - Date.parse(a.last_market_search_at) < 3600e3)
       return res.redirect(303, `/dashboard/artworks/${a.id}?msg=market-recent`);
     await discovery.searchMarketplaces(a.id);
@@ -363,6 +391,7 @@ export async function createApp(overrides = {}) {
     const a = req.artwork;
     const back = (msg) => res.redirect(303, `/dashboard/artworks/${a.id}?msg=${msg}`);
     if (!websearch.enabled) return back('search-unavailable');
+    if (!planOf(req.user).manualSearch) return back('plan-required');
     if (a.hidden_at) return back('search-failed');
     if (a.last_searched_at && Date.now() - Date.parse(a.last_searched_at) < 864e5) return back('search-recent');
     if (!websearch.remaining()) return back('search-budget');
@@ -397,8 +426,9 @@ export async function createApp(overrides = {}) {
       return fail(e.message);
     }
     if (req.body.mode === 'watch') {
-      if (db.one('SELECT COUNT(*) n FROM watches WHERE user_id = ?', req.user.id).n >= cfg.maxWatchesPerUser)
-        return fail(`You can monitor at most ${cfg.maxWatchesPerUser} pages.`);
+      const maxWatches = Math.min(cfg.maxWatchesPerUser, planOf(req.user).watches);
+      if (db.one('SELECT COUNT(*) n FROM watches WHERE user_id = ?', req.user.id).n >= maxWatches)
+        return fail(`Your ${planOf(req.user).name} plan includes ${maxWatches} monitored pages. Upgrade under Billing to add more.`);
       const r = db.run(
         'INSERT INTO watches (user_id, url, label, created_at) VALUES (?, ?, ?, ?) ON CONFLICT(user_id, url) DO NOTHING',
         req.user.id, url, str(req.body.label, 80), now(),
@@ -459,11 +489,11 @@ export async function createApp(overrides = {}) {
   d.get('/matches/:id', ownMatch, (req, res) =>
     dash_(req, res, 'Review match', dash.matchDetail({
       csrf: req.csrf, m: req.match, a: req.artwork, src: preview(req.artwork.id), platform: platformFor(req.match.page_url),
-      noticeType: req.noticeType, notice: noticeFor(req), user: req.user,
+      noticeType: req.noticeType, notice: req.user.email_verified_at ? noticeFor(req) : null, user: req.user,
     })),
   );
   d.get('/matches/:id/notice.txt', ownMatch, (req, res) =>
-    res.type('text/plain').set('Content-Disposition', `attachment; filename="takedown-${req.match.id}-${req.noticeType}.txt"`).send(noticeFor(req)),
+    !req.user.email_verified_at ? res.redirect(303, `/dashboard/matches/${req.match.id}`) : res.type('text/plain').set('Content-Disposition', `attachment; filename="takedown-${req.match.id}-${req.noticeType}.txt"`).send(noticeFor(req)),
   );
   d.post('/matches/:id', csrf, ownMatch, (req, res) => {
     const status = Object.hasOwn(dash.STATUS, req.body.status) ? req.body.status : req.match.status;
@@ -473,8 +503,8 @@ export async function createApp(overrides = {}) {
   });
 
   // settings
-  d.get('/settings', (req, res) => dash_(req, res, 'Settings', dash.settingsPage({ csrf: req.csrf, user: req.user })));
-  const settingsFail = (req, res, error) => dash_(req, res, 'Settings', dash.settingsPage({ csrf: req.csrf, user: req.user, error }), 400);
+  d.get('/settings', (req, res) => dash_(req, res, 'Settings', dash.settingsPage({ csrf: req.csrf, user: req.user, pendingEmail: emailVerify.pendingEmail(req.user.id) })));
+  const settingsFail = (req, res, error) => dash_(req, res, 'Settings', dash.settingsPage({ csrf: req.csrf, user: req.user, error, pendingEmail: emailVerify.pendingEmail(req.user.id) }), 400);
   d.post('/settings/profile', csrf, (req, res) => {
     const name = str(req.body.display_name, 80);
     const website = str(req.body.website, 200);
@@ -498,10 +528,57 @@ export async function createApp(overrides = {}) {
   }));
   d.post('/settings/delete', authLimit, csrf, ah(async (req, res) => {
     if (!(await verifyPassword(String(req.body.password || ''), req.user.password_hash))) return settingsFail(req, res, 'Wrong password. Your account was not deleted.');
+    try {
+      await billing.cancelNow(req.user);
+    } catch (e) {
+      return settingsFail(req, res, `Your subscription could not be cancelled, so your account was not deleted. Try again or contact support. (${e.message})`);
+    }
     for (const a of artworks.byUser(req.user.id)) await artworks.remove(a.id);
     db.run('DELETE FROM users WHERE id = ?', req.user.id);
     sessions.logout(req, res);
     res.redirect(303, '/?msg=deleted');
+  }));
+
+  // e-mail verification and change
+  d.post('/verify-email/resend', authLimit, csrf, ah(async (req, res) => {
+    if (!req.user.email_verified_at) await emailVerify.send(req.user);
+    res.redirect(303, '/dashboard?msg=verify-sent');
+  }));
+  d.post('/settings/email', authLimit, csrf, ah(async (req, res) => {
+    const email = str(req.body.email, 200).toLowerCase();
+    if (!(await verifyPassword(String(req.body.password || ''), req.user.password_hash))) return settingsFail(req, res, 'Wrong password.');
+    if (!EMAIL_RE.test(email)) return settingsFail(req, res, 'Enter a valid e-mail address.');
+    if (email === req.user.email.toLowerCase()) return settingsFail(req, res, 'That is already your e-mail address.');
+    if (db.one('SELECT 1 FROM users WHERE email = ?', email)) return settingsFail(req, res, 'That e-mail address is already used by another account.');
+    await emailVerify.send(req.user, email);
+    res.redirect(303, '/dashboard/settings?msg=email-change-sent');
+  }));
+
+  // billing
+  const billingView = (req, extra = {}) =>
+    billView.billingPage({
+      cfg, csrf: req.csrf, user: req.user, billing, interval: req.query.interval === 'yearly' ? 'yearly' : 'monthly',
+      usage: {
+        artworks: db.one('SELECT COUNT(*) n FROM artworks WHERE user_id = ?', req.user.id).n,
+        watches: db.one('SELECT COUNT(*) n FROM watches WHERE user_id = ? AND active = 1', req.user.id).n,
+        hot: db.one('SELECT COUNT(*) n FROM artworks WHERE user_id = ? AND hot_until > ?', req.user.id, now()).n,
+      },
+      ...extra,
+    });
+  d.get('/billing', (req, res) => dash_(req, res, 'Billing', dash.dashShell('/dashboard/billing', billingView(req))));
+  d.post('/billing/checkout', authLimit, csrf, ah(async (req, res) => {
+    try {
+      res.redirect(303, await billing.checkout(req.user, String(req.body.plan), req.body.interval === 'yearly' ? 'yearly' : 'monthly'));
+    } catch (e) {
+      dash_(req, res, 'Billing', dash.dashShell('/dashboard/billing', billingView(req, { error: e.message })), 400);
+    }
+  }));
+  d.post('/billing/portal', authLimit, csrf, ah(async (req, res) => {
+    try {
+      res.redirect(303, await billing.portal(req.user));
+    } catch (e) {
+      dash_(req, res, 'Billing', dash.dashShell('/dashboard/billing', billingView(req, { error: e.message })), 400);
+    }
   }));
 
   app.use('/dashboard', d);

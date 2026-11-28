@@ -17,6 +17,7 @@ const tabs = (path) => {
     ${t('/dashboard/artworks', 'Artworks')}
     ${t('/dashboard/monitor', 'Monitor')}
     ${t('/dashboard/matches', 'Matches')}
+    ${t('/dashboard/billing', 'Billing')}
     ${t('/dashboard/settings', 'Settings')}
   </nav>`;
 };
@@ -345,7 +346,10 @@ ${m.verified === 0
     ? html`<div class="flash flash-err">Formal notices require your legal name and postal address.
         <a href="/dashboard/settings">Add them in Settings</a> and they will be filled in automatically.</div>`
     : ''}
-  <nav class="filters">
+  ${notice === null
+    ? html`<div class="flash flash-err">Confirm your e-mail address to generate takedown notices. The notice gives your e-mail as the
+        contact address, so it has to be one you can read. Use the link in the banner at the top of the page.</div>`
+    : html`<nav class="filters">
     ${Object.entries(NOTICE_TYPES).map(
       ([k, v]) => html`<a href="/dashboard/matches/${m.id}?notice=${k}" class="${noticeType === k ? 'active' : ''}">${v}</a>`,
     )}
@@ -356,12 +360,12 @@ ${m.verified === 0
     <button type="button" class="btn btn-ghost" data-copy="#notice-text">Copy to clipboard</button>
     <a class="btn btn-ghost" href="/dashboard/matches/${m.id}/notice.txt?notice=${noticeType}">Download .txt</a>
   </div>
-  <p class="small muted">After sending, set the status to “Reported”. When the listing disappears, mark it “Removed”.</p>
+  <p class="small muted">After sending, set the status to “Reported”. When the listing disappears, mark it “Removed”.</p>`}
 </section>`,
   );
 }
 
-export function settingsPage({ csrf, user, error }) {
+export function settingsPage({ csrf, user, error, pendingEmail }) {
   return dashShell(
     '/dashboard/settings',
     html`
@@ -385,6 +389,17 @@ ${errorBlock(error)}
     <label>Legal name <input name="legal_name" maxlength="120" value="${user.legal_name}" autocomplete="name"></label>
     <label>Postal address <textarea name="postal_address" maxlength="400" rows="3" autocomplete="street-address">${user.postal_address}</textarea></label>
     <button class="btn">Save details</button>
+  </form>
+
+  <form method="post" action="/dashboard/settings/email" class="form card-form">
+    ${csrfField(csrf)}
+    <h2>E-mail address</h2>
+    <p class="small">${user.email} ${user.email_verified_at ? html`<span class="badge badge-ok">Confirmed</span>` : html`<span class="badge badge-new">Not confirmed</span>`}</p>
+    ${pendingEmail ? html`<p class="small muted">Waiting for confirmation of ${pendingEmail}.</p>` : ''}
+    <label>New e-mail address <input type="email" name="email" required maxlength="200" autocomplete="email"></label>
+    <label>Your password <input type="password" name="password" required autocomplete="current-password"></label>
+    <button class="btn">Change e-mail</button>
+    <p class="small muted">We send a confirmation link to the new address. It takes effect when you open it.</p>
   </form>
 
   <form method="post" action="/dashboard/settings/password" class="form card-form">

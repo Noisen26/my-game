@@ -7,6 +7,7 @@ import { fingerprint, sha256, SUSPECT_CROPS } from './imaging.js';
 import { stampDigest } from './timestamp.js';
 import { extractImageUrls, detectBlock, isShopify, shopifyJsonUrl, shopifyImages, normaliseImage } from './extract.js';
 import { now } from './db.js';
+import { planSql } from './plans.js';
 
 export { extractImageUrls };
 
@@ -147,7 +148,8 @@ export function createMonitor({ db, cfg, artworks, mailer, log = console }) {
 
   async function notify(userId, created) {
     if (!created.length) return;
-    const user = db.one('SELECT email, display_name FROM users WHERE id = ?', userId);
+    const user = db.one('SELECT email, display_name, email_verified_at FROM users WHERE id = ?', userId);
+    if (!user?.email_verified_at) return; // never mail an unconfirmed address
     const lines = created.map((c) => `- ${artworks.get(c.artworkId)?.title ?? c.artworkId}: ${c.pageUrl}`);
     await mailer.send({
       to: user.email,
@@ -184,9 +186,13 @@ export function createMonitor({ db, cfg, artworks, mailer, log = console }) {
 
   async function runDue() {
     const cutoff = new Date(Date.now() - cfg.rescanHours * 3600e3).toISOString();
+    // Only the oldest N active pages per user are scanned, N from their plan.
     const due = db.all(
-      `SELECT w.* FROM watches w JOIN users u ON u.id = w.user_id
-       WHERE w.active = 1 AND u.suspended_at IS NULL AND (w.last_checked_at IS NULL OR w.last_checked_at < ?) LIMIT 50`,
+      `SELECT * FROM (
+         SELECT w.*, ROW_NUMBER() OVER (PARTITION BY w.user_id ORDER BY w.created_at, w.id) AS rn, ${planSql('watches')} AS cap
+         FROM watches w JOIN users u ON u.id = w.user_id
+         WHERE w.active = 1 AND u.suspended_at IS NULL
+       ) WHERE rn <= cap AND (last_checked_at IS NULL OR last_checked_at < ?) LIMIT 50`,
       cutoff,
     );
     for (const w of due) await scanWatch(w);

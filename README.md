@@ -23,6 +23,8 @@ They get independent proof of authorship, and the service finds copies on market
 | **Takedowns** | Each match has a DMCA (17 U.S.C. § 512(c)(3)) or EU DSA (Art. 16) notice, pre-filled with the artist's details and evidence. It links to the right reporting channel for Etsy, Amazon, Temu, Shopify and Redbubble, or to a generic guide. Status workflow: new → confirmed → reported → removed / dismissed. |
 | **Anti claim-jacking** | A work that is already registered by someone else, either as the exact file or a perceptual match, cannot be registered again. Anyone can report a false claim. |
 | **Moderation** | An admin area for false-claim disputes. Upholding a dispute hides the work (which lets the real author register it) and can also suspend the owner. Rejecting keeps the work. Both parties are e-mailed. There is also user search, suspend/lift, hide, unhide and delete for artworks, and an audit log of every action. Hidden works and suspended accounts disappear from the gallery, profiles, images, certificates, "Find copies" and the monitor. |
+| **Plans and billing** | Free, Artist and Studio plans (`src/plans.js`) limit artworks, monitored pages, works on close watch, web-search frequency and marketplace searches. Limits apply both when adding things and in the scheduler. Payments use Stripe Checkout, and the Stripe Customer Portal handles plan changes, card updates, receipts and cancellation. Webhooks are signature-verified and idempotent. A downgrade never deletes anything. Admins can grant a plan for free, and `BETA_PLAN` grants one to every new account. |
+| **E-mail verification** | A confirmation link (valid 48 h) is sent at signup and can be resent. A confirmed address is required to pay, to receive any e-mail alert, and to generate takedown notices (they give the artist's address as contact). Changing e-mail only takes effect once the new address is confirmed. A password reset also confirms the address. |
 | **Accounts** | Sign-up and sign-in (scrypt), sessions, password reset by e-mail, public artist profiles, unlisted works, and account deletion that removes every file. |
 
 ### What it cannot do
@@ -39,7 +41,7 @@ Requires Node.js ≥ 22.13 (uses the built-in `node:sqlite`).
 npm install
 npm start          # http://localhost:3000
 npm run dev        # restart on file changes
-npm test           # 68 unit and integration tests
+npm test           # 87 unit and integration tests
 ```
 
 Configuration is done with environment variables. See [`.env.example`](.env.example). For production:
@@ -52,6 +54,16 @@ docker run -p 3000:3000 -v artguard-data:/data --env-file .env artguard
 Put it behind HTTPS (Caddy, nginx or Cloudflare) and set `BASE_URL` and `TRUST_PROXY`. **Back up the data volume.** It holds
 the SQLite database, the originals and the signing key in `keys/`. Losing the key means new certificates cannot be
 issued under the same identity. Existing ones stay verifiable with the published public key.
+
+## Billing setup (Stripe)
+
+1. In Stripe, create the products **Artist** and **Studio**, each with a monthly and a yearly recurring price matching `src/plans.js` (SEK 79/790 and SEK 199/1,990). Put the four price IDs in `STRIPE_PRICE_*`.
+2. Add a webhook endpoint `https://<your domain>/stripe/webhook` with the events `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted` and `invoice.payment_failed`. Put its signing secret in `STRIPE_WEBHOOK_SECRET`.
+3. Configure the **Customer Portal**: allow cancelling, updating the payment method and invoice history, and allow switching between the four prices.
+4. Set `STRIPE_SECRET_KEY`. Test everything with test-mode keys and the Stripe CLI (`stripe listen --forward-to localhost:3000/stripe/webhook`) before going live.
+5. Taxes (VAT) and the EU right of withdrawal for digital services are **not** handled in code. Decide with an accountant or lawyer whether to turn on Stripe Tax, and adjust the terms.
+
+During a beta, `BETA_PLAN=artist` gives every new account the Artist plan for free. Promotion codes created in Stripe can be entered at checkout.
 
 ## Administration
 
@@ -109,6 +121,9 @@ src/
   marketplaces.js Etsy Open API v3 and eBay Browse API clients, daily API caps
   offenders.js    repeat sellers: shop derivation and daily re-scans
   discovery.js    close watch (hot mode), view counting, marketplace sweeps
+  plans.js        plan definitions and limits
+  billing.js      Stripe Checkout, Customer Portal, webhooks
+  emailverify.js  e-mail confirmation and address changes
   websearch.js    reverse image search (Google Vision / TinEye), verification, budget
   extract.js      product-image extraction, CDN normalisation, block detection, Shopify
   admin.js        moderation routes
@@ -125,4 +140,3 @@ test/             unit and integration tests (fake shop and fake OTS calendar)
 - C2PA Content Credentials embedded in previews.
 - An embedding-based index (CLIP) for heavier crops and mock-ups, and a vector index once the catalogue grows.
 - Optional adversarial cloaking against style mimicry.
-- Etsy Open API integration; paid plans (monitoring volume).

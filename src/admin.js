@@ -5,6 +5,7 @@ import { requireAdmin } from './security.js';
 import { notFound } from './views/layout.js';
 import { now } from './db.js';
 import * as view from './views/admin.js';
+import { PLANS, syncPlan } from './plans.js';
 
 const str = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
 
@@ -26,6 +27,7 @@ export function createAdminRouter({ cfg, db, artworks, mailer, csrf, render, pre
     });
   };
   const notifyOwner = async (owner, a, what, note) =>
+    owner.email_verified_at &&
     mailer.send({
       to: owner.email,
       subject: `${cfg.siteName}: your artwork "${a.title}" has been ${what}`,
@@ -165,6 +167,14 @@ export function createAdminRouter({ cfg, db, artworks, mailer, csrf, render, pre
     const note = str(req.body.note, 500);
     suspend(req.target.id, note);
     log(req, 'user.suspend', `@${req.target.handle}`, note);
+    res.redirect(303, `/admin/users/${req.target.id}?msg=updated`);
+  });
+
+  r.post('/users/:id/plan', csrf, loadUser, (req, res) => {
+    const plan = Object.hasOwn(PLANS, req.body.plan) && req.body.plan !== 'free' ? req.body.plan : null;
+    db.run('UPDATE users SET comp_plan = ? WHERE id = ?', plan, req.target.id);
+    const effective = syncPlan(db, req.target.id);
+    log(req, 'user.plan', `@${req.target.handle}`, `granted: ${plan ?? 'none'}, effective: ${effective}`);
     res.redirect(303, `/admin/users/${req.target.id}?msg=updated`);
   });
 

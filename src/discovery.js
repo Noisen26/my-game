@@ -9,6 +9,7 @@ import sharp from 'sharp';
 import { readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { now } from './db.js';
+import { PLANS, planSql } from './plans.js';
 
 const DAY = 864e5;
 const isHot = (a) => !!a.hot_until && a.hot_until > now();
@@ -25,12 +26,17 @@ export function phrasesFor(a) {
 export function createDiscovery({ db, cfg, artworks, monitor, mailer, etsy, ebay, log = console }) {
   // ---------------------------------------------------------------- hot mode
   function setHot(artworkId, reason, days = cfg.hotDays) {
+    // Each plan allows a number of works on close watch at the same time.
+    const o = db.one('SELECT u.plan, u.id FROM artworks a JOIN users u ON u.id = a.user_id WHERE a.id = ?', artworkId);
+    if (!o) return false;
+    const others = db.one('SELECT COUNT(*) n FROM artworks WHERE user_id = ? AND id != ? AND hot_until > ?', o.id, artworkId, now()).n;
+    if (others >= (PLANS[o.plan] || PLANS.free).hot) return false;
     const until = new Date(Date.now() + days * DAY).toISOString();
     const r = db.run(
       'UPDATE artworks SET hot_until = ?, hot_reason = ? WHERE id = ? AND (hot_until IS NULL OR hot_until < ?)',
       until, reason, artworkId, until,
     );
-    return r.changes > 0;
+    return r.changes > 0 || !!db.one('SELECT 1 FROM artworks WHERE id = ? AND hot_until >= ?', artworkId, until);
   }
   const clearHot = (artworkId) => db.run(`UPDATE artworks SET hot_until = NULL, hot_reason = '' WHERE id = ?`, artworkId);
 
@@ -64,7 +70,8 @@ export function createDiscovery({ db, cfg, artworks, monitor, mailer, etsy, ebay
     for (const { id, views } of rows) {
       if (!setHot(id, 'trending')) continue;
       const a = artworks.get(id);
-      const owner = db.one('SELECT email, display_name FROM users WHERE id = ?', a.user_id);
+      const owner = db.one('SELECT email, display_name, email_verified_at FROM users WHERE id = ?', a.user_id);
+      if (!owner.email_verified_at) continue;
       await mailer.send({
         to: owner.email,
         subject: `${cfg.siteName}: "${a.title}" is trending, so we're watching it closely`,
@@ -132,7 +139,7 @@ export function createDiscovery({ db, cfg, artworks, monitor, mailer, etsy, ebay
     const hot = new Date(t - DAY + 5 * 60e3).toISOString();
     const due = db.all(
       `SELECT a.id FROM artworks a JOIN users u ON u.id = a.user_id
-       WHERE a.hidden_at IS NULL AND u.suspended_at IS NULL
+       WHERE a.hidden_at IS NULL AND u.suspended_at IS NULL AND ${planSql('marketplaces')} = 1
          AND (a.last_market_search_at IS NULL
               OR a.last_market_search_at < CASE WHEN a.hot_until > ? THEN ? ELSE ? END)
        ORDER BY (a.hot_until > ?) DESC, a.last_market_search_at IS NOT NULL, a.last_market_search_at LIMIT ?`,

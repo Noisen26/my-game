@@ -3,7 +3,13 @@ import { html } from '../html.js';
 export const csrfField = (csrf) => html`<input type="hidden" name="_csrf" value="${csrf}">`;
 
 const FLASH = {
-  welcome: ['ok', 'Welcome! Your account is ready. Register your first artwork below.'],
+  welcome: ['ok', 'Welcome! Your account is ready. We sent you an e-mail: open the link in it to confirm your address.'],
+  'email-verified': ['ok', 'Thank you, your e-mail address is confirmed.'],
+  'verify-sent': ['ok', 'A new confirmation link has been sent. It is valid for 48 hours.'],
+  'email-change-sent': ['ok', 'We sent a confirmation link to your new address. Your e-mail changes when you open it.'],
+  'billing-success': ['ok', 'Thank you! Your payment went through. Your new plan is active as soon as Stripe confirms it, usually within seconds.'],
+  'billing-cancelled': ['err', 'Checkout was cancelled. Nothing was charged.'],
+  'plan-required': ['err', 'That is not included in your plan, or you have reached its limit. See Billing to upgrade.'],
   uploaded: ['ok', 'Artwork registered and protected.'],
   updated: ['ok', 'Changes saved.'],
   deleted: ['ok', 'Deleted.'],
@@ -54,6 +60,7 @@ export function layout(ctx, { title, body, description = '', wide = false }) {
       ${nav('/how-it-works', 'How it works')}
       ${nav('/check', 'Find copies')}
       ${nav('/verify', 'Verify')}
+      ${nav('/pricing', 'Pricing')}
       ${user
         ? html`${nav('/dashboard', 'Dashboard')}${user.is_admin ? nav('/admin', 'Admin') : ''}
           <form method="post" action="/logout" class="inline">${csrfField(csrf)}<button class="link">Sign out</button></form>`
@@ -61,6 +68,12 @@ export function layout(ctx, { title, body, description = '', wide = false }) {
     </nav>
   </div>
 </header>
+${user && !user.email_verified_at
+  ? html`<div class="verify-banner" role="status"><div class="wrap">
+      <span>Confirm your e-mail address (${user.email}) to get alerts, generate takedown notices and upgrade.</span>
+      <form method="post" action="/dashboard/verify-email/resend" class="inline">${csrfField(csrf)}<button class="link">Send the link again</button></form>
+    </div></div>`
+  : ''}
 <main id="main" class="${wide ? 'wrap wide' : 'wrap'}">
 ${body}
 </main>

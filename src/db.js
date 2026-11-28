@@ -146,6 +146,26 @@ const MIGRATIONS = [
     UNIQUE (kind, ref)
   );
   CREATE TABLE api_usage (day TEXT NOT NULL, provider TEXT NOT NULL, count INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (day, provider));`,
+  // 5: plans, Stripe billing and e-mail verification
+  `ALTER TABLE users ADD COLUMN email_verified_at TEXT;
+  ALTER TABLE users ADD COLUMN plan TEXT NOT NULL DEFAULT 'free';
+  ALTER TABLE users ADD COLUMN comp_plan TEXT;
+  ALTER TABLE users ADD COLUMN sub_plan TEXT;
+  ALTER TABLE users ADD COLUMN sub_interval TEXT;
+  ALTER TABLE users ADD COLUMN sub_status TEXT;
+  ALTER TABLE users ADD COLUMN sub_period_end TEXT;
+  ALTER TABLE users ADD COLUMN sub_cancel_at_period_end INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE users ADD COLUMN stripe_customer_id TEXT;
+  ALTER TABLE users ADD COLUMN stripe_subscription_id TEXT;
+  CREATE UNIQUE INDEX users_stripe_customer ON users(stripe_customer_id) WHERE stripe_customer_id IS NOT NULL;
+  CREATE TABLE email_tokens (
+    token_hash TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    email TEXT NOT NULL,
+    expires_at INTEGER NOT NULL,
+    created_at INTEGER NOT NULL
+  );
+  CREATE TABLE stripe_events (id TEXT PRIMARY KEY, type TEXT NOT NULL, received_at TEXT NOT NULL);`,
 ];
 
 export function openDb(dataDir) {
